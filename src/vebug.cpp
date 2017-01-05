@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <json-c/json.h>
-#include <azmq/socket.hpp>
+#include <zmqpp/zmqpp.hpp>
 
 void* handle_pause(drakvuf_t drakvuf)
 {

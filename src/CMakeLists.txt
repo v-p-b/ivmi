@@ -55,4 +55,4 @@ find_package_handle_standard_args(JSON-C DEFAULT_MSG JSON-C_LIBRARY JSON-C_INCLU
 mark_as_advanced(JSON-C_INCLUDE_DIR JSON-C_LIBRARY)
 target_link_libraries(vebug ${JSON-C_LIBRARY})
 
-target_link_libraries(vebug azmq)
+target_link_libraries(vebug zmqpp)
