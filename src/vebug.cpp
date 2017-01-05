@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <json-c/json.h>
+#include <azmq/socket.hpp>
 
 void* handle_pause(drakvuf_t drakvuf)
 {

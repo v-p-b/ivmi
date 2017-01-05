@@ -1,7 +1,7 @@
 add_executable(vebug vebug.cpp)
 include_directories("../drakvuf/src")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -ggdb -std=c++11")
 
 ExternalProject_Get_Property(drakvuf binary_dir)
 add_dependencies(vebug drakvuf)
@@ -54,3 +54,5 @@ find_package_handle_standard_args(JSON-C DEFAULT_MSG JSON-C_LIBRARY JSON-C_INCLU
 
 mark_as_advanced(JSON-C_INCLUDE_DIR JSON-C_LIBRARY)
 target_link_libraries(vebug ${JSON-C_LIBRARY})
+
+target_link_libraries(vebug azmq)
