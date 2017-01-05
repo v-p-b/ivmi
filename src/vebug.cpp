@@ -54,6 +54,12 @@ void* handle_proc_attach()
     return NULL;
 }
 
+json_object* handle_command(json_object *json_cmd){
+    int32_t cmd=json_object_get_int(json_cmd);
+    printf("Got command: %d\n",cmd);
+    return json_tokener_parse("{\"resp\":43}");
+}
+
 int main()
 {
  
@@ -95,14 +101,17 @@ int main()
         len=0;
         printf("Read: %ld \n", recv(comm_fd, &len, 2, MSG_WAITALL));
         printf("Packet length: %d\n", len);
-        if (len==0xffff || len==0){
+        if (len==0xffff){
             fprintf(stderr,"Invalid length!\n");    
-            //continue;
-            throw -1;
+            continue;
         }
+        if (len==0){
+            printf("Disconnected, exiting...\n");
+            break;
+        }
+
         try{
             pkt=(char*)malloc(len+1);
-            printf("Packetp: %p\n", pkt);
             
             if (!pkt){
                 fprintf(stderr,"Memory allocation error!\n");
@@ -113,8 +122,6 @@ int main()
                 fprintf(stderr,"Receive error!\n");    
                 throw -1;
             }
-            printf("Packetp: %p\n", pkt);
-            printf("Packetc: %c\n", pkt[0]);
             pkt[len] = 0;
             printf("Packet: %s\n", pkt);
             json_pkt = json_tokener_parse(pkt);
@@ -122,11 +129,28 @@ int main()
                 fprintf(stderr,"Invalid packet!\n");
                 throw -1;
             }
-            int32_t cmd=json_object_get_int(json_cmd);
-            printf("Got command: %d\n",cmd);
+            json_object* json_resp = handle_command(json_cmd);
+            char *resp = strdup(json_object_to_json_string(json_resp));
+            size_t resp_len = strlen(resp);
+            if (resp_len > 0xffff-1){
+                fprintf(stderr,"Answer too big!\n");
+                free(resp);
+                json_object_put(json_resp);
+                throw -1;
+            }
+            printf("Response length: %ld\n", resp_len);
+            char *resp_pkt=(char*)malloc(resp_len+2);
+            strncpy(resp_pkt+2,resp,resp_len);
+            resp_pkt[0] = resp_len & 0xff;
+            resp_pkt[1] = (resp_len & 0xff00) >> 8;
+            send(comm_fd,resp_pkt,resp_len+2,0);
+
             free(pkt);
+            free(resp_pkt);
+            free(resp);
             json_object_put(json_cmd);
             json_object_put(json_pkt);
+            json_object_put(json_resp);
         }catch(int ex){
             fprintf(stderr,"Exception handling: %x",ex);
             free(pkt);
