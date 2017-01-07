@@ -1,16 +1,22 @@
+ExternalProject_Get_Property(drakvuf binary_dir)
+
+add_library(xenhelper STATIC IMPORTED)
+set_property(TARGET xenhelper PROPERTY IMPORTED_LOCATION ${binary_dir}/src/xen_helper/.libs/libxenhelper.a)
+
+add_library(ldrakvuf STATIC IMPORTED)
+set_property(TARGET ldrakvuf PROPERTY IMPORTED_LOCATION ${binary_dir}/src/libdrakvuf/.libs/libdrakvuf.a)
+
 add_executable(ivmi ivmi.cpp)
+
 include_directories("../drakvuf/src")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -ggdb -std=c++11")
 
-ExternalProject_Get_Property(drakvuf binary_dir)
 add_dependencies(ivmi drakvuf)
 
-file(GLOB drakvuf_objects "${binary_dir}/src/libdrakvuf/*.o")
-target_link_libraries(ivmi ${drakvuf_objects})
+target_link_libraries(ivmi ldrakvuf)
 
-file(GLOB xenhelper_objects "${binary_dir}/src/xen_helper/*.o")
-target_link_libraries(ivmi ${xenhelper_objects})
+target_link_libraries(ivmi xenhelper)
 
 find_library(JSONC_LIBRARY "json-c" "/usr/lib" "/usr/local/lib")
 target_link_libraries(ivmi ${JSONC_LIBRARY})
