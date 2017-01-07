@@ -1,8 +1,7 @@
 #include <cstdio>
-#include <memory>
-#include <stdexcept>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <libdrakvuf/libdrakvuf.h>
 #include <unistd.h>
 #include <json-c/json.h>
@@ -11,7 +10,7 @@
 
 using namespace std;
 
-ivmi_t ivmi;
+ivmi_t ivmi_ctx;
 
 void* handle_pause(drakvuf_t drakvuf)
 {
@@ -74,7 +73,44 @@ json_object* handle_vm_list(){
 }
 
 json_object* handle_error(){
-    json_tokener_parse("{\"resp\":43}");
+    return json_tokener_parse("{\"resp\":43}");
+}
+
+json_object* handle_init(json_object* json_pkt){
+    json_object* json_domain;
+    json_object* json_profile;
+
+    ivmi_ctx.domid=0;
+    ivmi_ctx.process.pid=0;
+    ivmi_ctx.process.cr3=0;
+
+    if (!json_object_object_get_ex(json_pkt, "domain", &json_domain)){
+        return handle_error();
+    }
+    if (!json_object_object_get_ex(json_pkt, "profile", &json_profile)){
+        return handle_error();
+    }
+
+    ofstream tmpf;
+    string tmpn = tmpnam(NULL);
+    tmpf.open(tmpn);
+    cout << "Writing profile " << tmpn << endl;
+    tmpf << json_object_to_json_string(json_profile);
+    tmpf.close();
+    char *domain=strdup(json_object_get_string(json_domain));
+
+    drakvuf_init(&ivmi_ctx.drakvuf, domain, tmpn.c_str(), false);    
+
+    free(domain);
+
+    return json_object_new_string("OK");
+} 
+
+json_object* handle_close(){
+    if (ivmi_ctx.drakvuf){
+        drakvuf_close(ivmi_ctx.drakvuf, false);
+    } 
+    return json_object_new_string("OK");
 }
 
 json_object* handle_command(json_object *json_pkt){
@@ -93,7 +129,7 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_vm_list();
                 break;
             case CMD_INIT:
-                json_resp=handle_error();
+                json_resp=handle_init(json_pkt);
                 break;
             case CMD_PAUSE:
                 json_resp=handle_error();
@@ -120,7 +156,7 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_error();
                 break;
             case CMD_CLOSE:
-                json_resp=handle_error();
+                json_resp=handle_close();
                 break;
             default:
                 json_resp=handle_error();
@@ -142,9 +178,6 @@ int main()
 
     server.bind("tcp://127.0.0.1:22000");
 
-    /*drakvuf_t drakvuf;
-
-    drakvuf_init(&drakvuf, "", "", false);    */
     while(1){
         zmqpp::message request;
         zmqpp::message response;

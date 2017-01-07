@@ -23,10 +23,10 @@ enum VEBUG_CMD
 typedef struct ivmi {
     drakvuf_t drakvuf;
     uint64_t domid;
-    struct process{
+    struct{
         uint64_t pid;
         uint64_t cr3;
-    };
+    } process;
 } ivmi_t;
 
 #endif
