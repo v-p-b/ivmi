@@ -4,6 +4,7 @@
 #include <fstream>
 #include <libdrakvuf/libdrakvuf.h>
 #include <unistd.h>
+#include <glib.h>
 #include <json-c/json.h>
 #include <zmqpp/zmqpp.hpp>
 #include "ivmi.h"
@@ -12,14 +13,32 @@ using namespace std;
 
 ivmi_t ivmi_ctx;
 
-void* handle_pause(drakvuf_t drakvuf)
-{
-    return NULL;
+json_object* handle_error(int32_t e){
+    json_object* resp=json_object_new_object();
+    json_object* errcode=json_object_new_int(e);
+    json_object_object_add(resp, "error", errcode);
+    json_object_put(errcode);
+    return resp;
 }
 
-void* handle_resume()
+json_object* handle_pause()
 {
-    return NULL;
+    if (ivmi_ctx.drakvuf){
+        drakvuf_pause(ivmi_ctx.drakvuf);
+    }else{
+        return handle_error(1);
+    }
+    return json_object_new_string("OK");
+}
+
+json_object* handle_resume()
+{
+    if (ivmi_ctx.drakvuf){
+        drakvuf_resume(ivmi_ctx.drakvuf);
+    }else{
+        return handle_error(1);
+    }
+    return json_object_new_string("OK");
 }
 
 void* handle_mem_read()
@@ -72,10 +91,6 @@ json_object* handle_vm_list(){
     
 }
 
-json_object* handle_error(){
-    return json_tokener_parse("{\"resp\":43}");
-}
-
 json_object* handle_init(json_object* json_pkt){
     json_object* json_domain;
     json_object* json_profile;
@@ -85,22 +100,28 @@ json_object* handle_init(json_object* json_pkt){
     ivmi_ctx.process.cr3=0;
 
     if (!json_object_object_get_ex(json_pkt, "domain", &json_domain)){
-        return handle_error();
+        return handle_error(1);
     }
     if (!json_object_object_get_ex(json_pkt, "profile", &json_profile)){
-        return handle_error();
+        return handle_error(2);
     }
 
     ofstream tmpf;
-    string tmpn = tmpnam(NULL);
-    tmpf.open(tmpn);
-    cout << "Writing profile " << tmpn << endl;
+    string tmpn = tmpnam(NULL); // insecure
+    tmpf.open(tmpn); // TODO delete this after use!
+    cout << "Writing profile... " << tmpn << endl;
     tmpf << json_object_to_json_string(json_profile);
     tmpf.close();
+    cout << "Profile ready." << endl;
     char *domain=strdup(json_object_get_string(json_domain));
 
-    drakvuf_init(&ivmi_ctx.drakvuf, domain, tmpn.c_str(), false);    
+    if (!drakvuf_init(&ivmi_ctx.drakvuf, domain, tmpn.c_str(), false)){
+        free(domain);
+        return handle_error(3);
+    }    
 
+    ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
+    // TODO free JSON objects!
     free(domain);
 
     return json_object_new_string("OK");
@@ -108,7 +129,13 @@ json_object* handle_init(json_object* json_pkt){
 
 json_object* handle_close(){
     if (ivmi_ctx.drakvuf){
+        drakvuf_interrupt(ivmi_ctx.drakvuf,9);
+        g_thread_join(ivmi_ctx.drakvuf_loop);
         drakvuf_close(ivmi_ctx.drakvuf, false);
+        ivmi_ctx.domid=0;
+        ivmi_ctx.process.pid=0;
+        ivmi_ctx.process.cr3=0;
+        ivmi_ctx.drakvuf=NULL;
     } 
     return json_object_new_string("OK");
 }
@@ -132,34 +159,34 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_init(json_pkt);
                 break;
             case CMD_PAUSE:
-                json_resp=handle_error();
+                json_resp=handle_pause();
                 break;
             case CMD_RESUME:
-                json_resp=handle_error();
+                json_resp=handle_resume();
                 break;
             case CMD_MEM_R:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
                 break;
             case CMD_MEM_W:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
                 break;
             case CMD_REG_R:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
                 break;
             case CMD_REG_W:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
                 break;
             case CMD_TRAP_ADD:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
                 break;
             case CMD_TRAP_DEL:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
                 break;
             case CMD_CLOSE:
                 json_resp=handle_close();
                 break;
             default:
-                json_resp=handle_error();
+                json_resp=handle_error(-1);
         }
         
         json_object_put(json_cmd);
@@ -167,7 +194,7 @@ json_object* handle_command(json_object *json_pkt){
         return json_resp;
     }catch (int ex){ 
         json_object_put(json_cmd);
-        return json_tokener_parse("{\"error\":-1}");
+        return json_tokener_parse("{\"error\":-2}");
     }
 }
 

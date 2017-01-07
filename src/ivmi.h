@@ -1,8 +1,9 @@
 #ifndef VEBUG_H
 #define VEBUG_H
 
-#include<libdrakvuf/libdrakvuf.h>
-#include<unistd.h>
+#include <libdrakvuf/libdrakvuf.h>
+#include <unistd.h>
+#include <glib.h>
 
 enum VEBUG_CMD
 {
@@ -22,6 +23,7 @@ enum VEBUG_CMD
 
 typedef struct ivmi {
     drakvuf_t drakvuf;
+    GThread* drakvuf_loop;
     uint64_t domid;
     struct{
         uint64_t pid;

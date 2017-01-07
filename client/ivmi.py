@@ -51,6 +51,21 @@ class IVMIShell(cmd.Cmd):
         self.socket.send(b"{\"cmd\":240}")
         self.socket.close()
 
+    def do_pause(self, arg):
+        'Pause VM'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        self.socket.send(b"{\"cmd\":3}")
+        print(self.socket.recv())
+
+    def do_resume(self, arg):
+        'Resume VM'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        self.socket.send(b"{\"cmd\":4}")
+        print(self.socket.recv())
 
     def do_test(self, arg):
         'Testing'

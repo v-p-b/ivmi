@@ -57,3 +57,8 @@ target_link_libraries(ivmi ${JSON-C_LIBRARY})
 
 target_link_libraries(ivmi zmq)
 target_link_libraries(ivmi zmqpp)
+
+pkg_check_modules (GLIB2 REQUIRED glib-2.0)
+
+include_directories (${GLIB2_INCLUDE_DIRS})
+target_link_libraries (ivmi ${GLIB2_LIBRARIES})
