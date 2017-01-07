@@ -1,7 +1,7 @@
 add_executable(vebug vebug.cpp)
 include_directories("../drakvuf/src")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -ggdb -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -ggdb")
 
 ExternalProject_Get_Property(drakvuf binary_dir)
 add_dependencies(vebug drakvuf)
