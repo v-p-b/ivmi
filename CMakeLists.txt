@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 2.8)
-project(vebug)
+project(ivmi)
 include(ExternalProject)
 
 ExternalProject_Add(drakvuf
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/drakvuf
-    STEP_TARGETS build
     CONFIGURE_COMMAND <SOURCE_DIR>/configure
+    STEP_TARGETS build
+    INSTALL_COMMAND true
     BUILD_COMMAND ${MAKE})
 
 ExternalProject_Add_Step(drakvuf autogen
