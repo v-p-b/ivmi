@@ -1,11 +1,17 @@
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <iostream>
 #include <libdrakvuf/libdrakvuf.h>
 #include <unistd.h>
 #include <json-c/json.h>
 #include <zmqpp/zmqpp.hpp>
+#include "ivmi.h"
 
 using namespace std;
+
+ivmi_t ivmi;
 
 void* handle_pause(drakvuf_t drakvuf)
 {
@@ -52,6 +58,25 @@ void* handle_proc_attach()
     return NULL;
 }
 
+json_object* handle_vm_list(){
+    // TODO Calling the OS shell until I figure out the interface to Xen...
+    char buffer[128];
+    std::string result = "";
+    std::shared_ptr<FILE> pipe(popen("xl list", "r"), pclose);
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    while (!feof(pipe.get())) {
+        if (fgets(buffer, 128, pipe.get()) != NULL)
+            result += buffer;
+    }
+
+    return json_object_new_string(result.c_str());
+    
+}
+
+json_object* handle_error(){
+    json_tokener_parse("{\"resp\":43}");
+}
+
 json_object* handle_command(json_object *json_pkt){
     json_object* json_cmd = NULL;
     try{
@@ -62,10 +87,48 @@ json_object* handle_command(json_object *json_pkt){
 
         int32_t cmd=json_object_get_int(json_cmd);
         printf("Got command: %d\n",cmd);
+        json_object* json_resp;
+        switch(cmd){
+            case CMD_LIST:
+                json_resp=handle_vm_list();
+                break;
+            case CMD_INIT:
+                json_resp=handle_error();
+                break;
+            case CMD_PAUSE:
+                json_resp=handle_error();
+                break;
+            case CMD_RESUME:
+                json_resp=handle_error();
+                break;
+            case CMD_MEM_R:
+                json_resp=handle_error();
+                break;
+            case CMD_MEM_W:
+                json_resp=handle_error();
+                break;
+            case CMD_REG_R:
+                json_resp=handle_error();
+                break;
+            case CMD_REG_W:
+                json_resp=handle_error();
+                break;
+            case CMD_TRAP_ADD:
+                json_resp=handle_error();
+                break;
+            case CMD_TRAP_DEL:
+                json_resp=handle_error();
+                break;
+            case CMD_CLOSE:
+                json_resp=handle_error();
+                break;
+            default:
+                json_resp=handle_error();
+        }
         
         json_object_put(json_cmd);
 
-        return json_tokener_parse("{\"resp\":43}");
+        return json_resp;
     }catch (int ex){ 
         json_object_put(json_cmd);
         return json_tokener_parse("{\"error\":-1}");
