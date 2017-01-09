@@ -1,100 +1,92 @@
 import zmq
-import cmd
 import json
-"""
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
-"""
 
-class IVMIShell(cmd.Cmd):
-    intro="Welcome to iVMI!"
-    prompt="ivmi# "
-    file=None
+class IVMI():
+    CMD_LIST = 0x1
+    CMD_INIT = 0x2
+    CMD_PAUSE = 0x3
+    CMD_RESUME = 0x4
+    CMD_MEM_R = 0x5
+    CMD_MEM_W = 0x6
+    CMD_REG_R = 0x7
+    CMD_REG_W = 0x8
+    CMD_TRAP_ADD = 0x9
+    CMD_TRAP_DEL = 0xA
+    CMD_INFO = 0x10
+    CMD_PROC_LIST = 0x11
+    CMD_CLOSE = 0xf0
+    CMD_BYE = 0xff
 
-    def do_connect(self, arg):
+    def connect(self, url):
         'Connects to the remote iVMI queue specified as argument'
         self.context=zmq.Context()
         self.socket=self.context.socket(zmq.REQ)
-        self.socket.connect(arg)
-        self.prompt="ivmi[%s]# " % arg
-    
-    def do_list(self, arg):
+        self.socket.connect(url)
+        return (self.context, self.socket)
+
+    def list(self):
         'List running domains'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(b"{\"cmd\":1}")
-        print(self.socket.recv())
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_LIST})))
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-    def do_init(self, arg):
+    def init(self, domain, profile):
         'Initialize iVMI. Arguments: <domain> <rekall profile>'
         if not self.socket:
             print ('Not connected!')
             return False
-        args=arg.split()
-        domain=args[0]
-        profile=args[1]
         req={}
-        req["cmd"]=2
+        req["cmd"]=self.CMD_INIT
         req["domain"]=domain
         self.profile=json.load(open(profile,"r"))
         req["profile"]=self.profile
         self.socket.send(bytes(json.dumps(req),"utf-8"))
-        print(self.socket.recv())
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-    def do_info(self, arg):
+    def info(self):
         'Information about the current context'
         if not self.socket:
             print ('Not connected!')
             return False
         req={}
-        req["cmd"]=16
+        req["cmd"]=self.CMD_INFO
         self.socket.send(bytes(json.dumps(req),"utf-8"))
-        print(self.socket.recv())
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-    def do_ps(self, arg):
+    def ps(self):
         'Process list'
         if not self.socket:
             print ('Not connected!')
             return False
         req={}
-        req["cmd"]=0x11
+        req["cmd"]=self.CMD_PROC_LIST
         self.socket.send(bytes(json.dumps(req),"utf-8"))
-        print(self.socket.recv())
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-
-
-    def do_close(self, arg):
+    def close(self, arg):
         'Close introspection context'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(b"{\"cmd\":240}")
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_CLOSE})))
         self.socket.close()
-        self.prompt="ivmi# "
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-    def do_pause(self, arg):
+    def pause(self):
         'Pause VM'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(b"{\"cmd\":3}")
-        print(self.socket.recv())
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_PAUSE})))
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-    def do_resume(self, arg):
+    def resume(self, arg):
         'Resume VM'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(b"{\"cmd\":4}")
-        print(self.socket.recv())
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_RESUME})))
+        return json.loads(self.socket.recv().decode('utf-8'))
 
-    def do_test(self, arg):
-        'Testing'
-        print(repr(arg))
-
-if __name__ == '__main__':
-    IVMIShell().cmdloop()
-    
