@@ -17,6 +17,7 @@ enum VEBUG_CMD
     CMD_REG_W = 0x8,
     CMD_TRAP_ADD = 0x9,
     CMD_TRAP_DEL = 0xA,
+    CMD_INFO = 0x10,
     CMD_CLOSE = 0xf0,
     CMD_BYE = 0xff
 };

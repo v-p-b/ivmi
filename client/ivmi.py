@@ -39,9 +39,21 @@ class IVMIShell(cmd.Cmd):
         req={}
         req["cmd"]=2
         req["domain"]=domain
-        req["profile"]=json.load(open(profile,"r"))
+        self.profile=json.load(open(profile,"r"))
+        req["profile"]=self.profile
         self.socket.send(bytes(json.dumps(req),"utf-8"))
         print(self.socket.recv())
+
+    def do_info(self, arg):
+        'Information about the current context'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        req={}
+        req["cmd"]=16
+        self.socket.send(bytes(json.dumps(req),"utf-8"))
+        print(self.socket.recv())
+
 
     def do_close(self, arg):
         'Close introspection context'
@@ -50,6 +62,7 @@ class IVMIShell(cmd.Cmd):
             return False
         self.socket.send(b"{\"cmd\":240}")
         self.socket.close()
+        self.prompt="ivmi# "
 
     def do_pause(self, arg):
         'Pause VM'

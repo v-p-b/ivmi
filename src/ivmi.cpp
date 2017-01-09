@@ -91,6 +91,30 @@ json_object* handle_vm_list(){
     
 }
 
+json_object* handle_info(){
+    json_object* ret = json_object_new_object();
+    
+    os_t os_type = drakvuf_get_os_type(ivmi_ctx.drakvuf);
+    addr_t kernel_base = drakvuf_get_kernel_base(ivmi_ctx.drakvuf);
+    addr_t curr_proc = drakvuf_get_current_process(ivmi_ctx.drakvuf, 0); // TODO multi-CPU
+    addr_t curr_thread = drakvuf_get_current_thread(ivmi_ctx.drakvuf, 0);
+    char* process_name = drakvuf_get_process_name(ivmi_ctx.drakvuf, curr_proc);
+    vmi_pid_t process_pid;
+    drakvuf_get_process_pid(ivmi_ctx.drakvuf, curr_proc, &process_pid);
+
+    json_object_object_add(ret,"os",json_object_new_int64(os_type));
+    json_object_object_add(ret,"kernel_base",json_object_new_int64(kernel_base));
+    json_object_object_add(ret,"current_process",json_object_new_int64(curr_proc));
+    json_object_object_add(ret,"current_thread",json_object_new_int64(curr_thread));
+    if (curr_proc && process_name){
+        json_object_object_add(ret,"process_name",json_object_new_string(process_name));
+        json_object_object_add(ret,"process_pid",json_object_new_int64(process_pid));
+    }
+
+    free(process_name);
+    return ret;
+}
+
 json_object* handle_init(json_object* json_pkt){
     json_object* json_domain;
     json_object* json_profile;
@@ -123,8 +147,8 @@ json_object* handle_init(json_object* json_pkt){
     ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
     // TODO free JSON objects!
     free(domain);
-
-    return json_object_new_string("OK");
+    drakvuf_pause(ivmi_ctx.drakvuf);
+    return handle_info();
 } 
 
 json_object* handle_close(){
@@ -182,6 +206,9 @@ json_object* handle_command(json_object *json_pkt){
             case CMD_TRAP_DEL:
                 json_resp=handle_error(-1);
                 break;
+            case CMD_INFO:
+                json_resp=handle_info();
+                break;
             case CMD_CLOSE:
                 json_resp=handle_close();
                 break;
@@ -220,5 +247,6 @@ int main()
 
         free(resp);
         json_object_put(json_pkt);
+        json_object_put(json_resp);
     }
 }
