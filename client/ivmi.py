@@ -54,6 +54,17 @@ class IVMIShell(cmd.Cmd):
         self.socket.send(bytes(json.dumps(req),"utf-8"))
         print(self.socket.recv())
 
+    def do_ps(self, arg):
+        'Process list'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        req={}
+        req["cmd"]=0x11
+        self.socket.send(bytes(json.dumps(req),"utf-8"))
+        print(self.socket.recv())
+
+
 
     def do_close(self, arg):
         'Close introspection context'
