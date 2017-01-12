@@ -164,6 +164,20 @@ json_object* handle_close(){
     return json_object_new_string("OK");
 }
 
+json_object* handle_find_process(json_object* json_pkt){
+    json_object* pid_json;
+    json_object_object_get_ex(json_pkt, "pid", &pid_json); 
+
+    addr_t eprocess_addr;
+    int64_t pid=json_object_get_int64(pid_json);
+    cout << pid << endl;
+    drakvuf_find_eprocess(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
+
+    json_object_put(pid_json);
+
+    return json_object_new_int64(eprocess_addr);
+}
+
 json_object* handle_process_list(){
     json_object *ret = json_object_new_array();
 
@@ -328,6 +342,9 @@ json_object* handle_command(json_object *json_pkt){
                 break;
             case CMD_PROC_LIST:
                 json_resp=handle_process_list();
+                break;
+            case CMD_FIND_PROC:
+                json_resp=handle_find_process(json_pkt);
                 break;
             case CMD_CLOSE:
                 json_resp=handle_close();

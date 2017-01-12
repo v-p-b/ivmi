@@ -14,6 +14,7 @@ class IVMI():
     CMD_TRAP_DEL = 0xA
     CMD_INFO = 0x10
     CMD_PROC_LIST = 0x11
+    CMD_FIND_PROC = 0x12
     CMD_CLOSE = 0xf0
     CMD_BYE = 0xff
 
@@ -64,11 +65,15 @@ class IVMI():
         req["cmd"]=self.CMD_PROC_LIST
         self.socket.send(bytes(json.dumps(req),"utf-8"))
         ret=self.socket.recv()
-        try:
-            return json.loads(ret.decode('utf-8',errors='replace'))
-        except UnicodeDecodeError:
-            print(repr(ret))
-            return None
+        return json.loads(ret.decode('utf-8',errors='replace'))
+
+    def find_pid(self, pid):
+        'Find EPROCESS address based on PID'
+        if not self.socket:
+            print ('Not connected!')
+            return False        
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_FIND_PROC,"pid":pid}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
     def close(self):
         'Close introspection context'

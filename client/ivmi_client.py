@@ -33,6 +33,11 @@ class IVMIShell(cmd.Cmd):
         'Process list'
         res=self.ivmi.ps()
         print(repr(res))
+    
+    def do_pid(self, arg):
+        'Find EPROCESS address based on PID'
+        res=self.ivmi.find_pid(int(arg))
+        print(repr(res))
 
     def do_close(self, arg):
         'Close introspection context'

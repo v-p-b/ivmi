@@ -19,6 +19,7 @@ enum VEBUG_CMD
     CMD_TRAP_DEL = 0xA,
     CMD_INFO = 0x10,
     CMD_PROC_LIST = 0x11,
+    CMD_FIND_PROC = 0x12,
     CMD_CLOSE = 0xf0,
     CMD_BYE = 0xff
 };
