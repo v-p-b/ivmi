@@ -29,8 +29,8 @@ class IVMI():
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(bytes(json.dumps({"cmd":self.CMD_LIST})))
-        return json.loads(self.socket.recv().decode('utf-8'))
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_LIST}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
     def init(self, domain, profile):
         'Initialize iVMI. Arguments: <domain> <rekall profile>'
@@ -43,7 +43,7 @@ class IVMI():
         self.profile=json.load(open(profile,"r"))
         req["profile"]=self.profile
         self.socket.send(bytes(json.dumps(req),"utf-8"))
-        return json.loads(self.socket.recv().decode('utf-8'))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
     def info(self):
         'Information about the current context'
@@ -53,7 +53,7 @@ class IVMI():
         req={}
         req["cmd"]=self.CMD_INFO
         self.socket.send(bytes(json.dumps(req),"utf-8"))
-        return json.loads(self.socket.recv().decode('utf-8'))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
     def ps(self):
         'Process list'
@@ -63,30 +63,36 @@ class IVMI():
         req={}
         req["cmd"]=self.CMD_PROC_LIST
         self.socket.send(bytes(json.dumps(req),"utf-8"))
-        return json.loads(self.socket.recv().decode('utf-8'))
+        ret=self.socket.recv()
+        try:
+            return json.loads(ret.decode('utf-8',errors='replace'))
+        except UnicodeDecodeError:
+            print(repr(ret))
+            return None
 
-    def close(self, arg):
+    def close(self):
         'Close introspection context'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(bytes(json.dumps({"cmd":self.CMD_CLOSE})))
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_CLOSE}),"utf-8"))
+        ret=json.loads(self.socket.recv().decode('utf-8',errors='replace'))
         self.socket.close()
-        return json.loads(self.socket.recv().decode('utf-8'))
+        return ret
 
     def pause(self):
         'Pause VM'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(bytes(json.dumps({"cmd":self.CMD_PAUSE})))
-        return json.loads(self.socket.recv().decode('utf-8'))
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_PAUSE}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
-    def resume(self, arg):
+    def resume(self):
         'Resume VM'
         if not self.socket:
             print ('Not connected!')
             return False
-        self.socket.send(bytes(json.dumps({"cmd":self.CMD_RESUME})))
-        return json.loads(self.socket.recv().decode('utf-8'))
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_RESUME}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
