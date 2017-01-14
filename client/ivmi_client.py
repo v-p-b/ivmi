@@ -50,6 +50,12 @@ class IVMIShell(cmd.Cmd):
         res=self.ivmi.read_mem(int(args[0]),int(args[1]),int(args[2]))
         print(repr(res))
 
+    def do_write_mem(self, arg):
+        'Write memory  <pid (0 if physical)> <address> <contents base64>'
+        args=arg.split()
+        res=self.ivmi.write_mem(int(args[0]),int(args[1]),args[2])
+        print(repr(res))
+
     def do_close(self, arg):
         'Close introspection context'
         self.ivmi.close()

@@ -383,8 +383,8 @@ json_object* handle_mem_read(json_object *json_pkt){
         return handle_error(1);
     }
 
-    vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
-    drakvuf_pause(ivmi_ctx.drakvuf);
+    vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf); 
+    drakvuf_pause(ivmi_ctx.drakvuf); // Consistent read
     size_t read=0;
     if (pid==0){
         read=vmi_read_pa(vmi, addr, buf, len);
@@ -401,8 +401,58 @@ json_object* handle_mem_read(json_object *json_pkt){
     }
 
     string mem=base64_encode(reinterpret_cast<const unsigned char*>(buf), len);
+    free(buf);
     return json_object_new_string(mem.c_str());
 }
+
+json_object* handle_mem_write(json_object *json_pkt){
+    json_object* pid_json;
+    json_object* addr_json;
+    json_object* contents_json;
+
+    json_object_object_get_ex(json_pkt, "pid", &pid_json);
+    json_object_object_get_ex(json_pkt, "addr", &addr_json);
+    json_object_object_get_ex(json_pkt, "contents", &contents_json);
+
+    addr_t pid;
+    addr_t addr;
+    char* contents_b64;
+
+    pid=json_object_get_int64(pid_json);
+    addr=json_object_get_int64(addr_json);
+    contents_b64=strdup(json_object_get_string(contents_json));
+
+    json_object_put(pid_json);
+    json_object_put(addr_json);
+    json_object_put(contents_json);
+
+    string scontents_b64=contents_b64;
+    string sbuf=base64_decode(scontents_b64);
+
+    void* buf=malloc(sbuf.length());
+    memcpy(buf, sbuf.data(), sbuf.length());
+
+    vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf); 
+    drakvuf_pause(ivmi_ctx.drakvuf); // Consistent write
+    size_t wrote=0;
+    if (pid==0){
+        wrote=vmi_write_pa(vmi, addr, buf, sbuf.length());
+    }else{
+        wrote=vmi_write_va(vmi, addr, pid, buf, sbuf.length());
+    }
+   
+    drakvuf_resume(ivmi_ctx.drakvuf);
+    drakvuf_release_vmi(ivmi_ctx.drakvuf);
+
+    free(buf);
+    free(contents_b64);
+    if (wrote!=sbuf.length()){
+        return handle_error(2);
+    }
+
+    return json_object_new_int(wrote);
+}
+
 
 json_object* handle_command(json_object *json_pkt){
     json_object* json_cmd = NULL;
@@ -432,7 +482,7 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_mem_read(json_pkt);
                 break;
             case CMD_MEM_W:
-                json_resp=handle_error(-1);
+                json_resp=handle_mem_write(json_pkt);
                 break;
             case CMD_REG_R:
                 json_resp=handle_error(-1);
