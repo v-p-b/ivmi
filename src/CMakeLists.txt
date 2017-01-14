@@ -6,7 +6,7 @@ set_property(TARGET xenhelper PROPERTY IMPORTED_LOCATION ${binary_dir}/src/xen_h
 add_library(ldrakvuf STATIC IMPORTED)
 set_property(TARGET ldrakvuf PROPERTY IMPORTED_LOCATION ${binary_dir}/src/libdrakvuf/.libs/libdrakvuf.a)
 
-add_executable(ivmi ivmi.cpp)
+add_executable(ivmi ivmi.cpp base64.cpp)
 
 include_directories("../drakvuf/src")
 

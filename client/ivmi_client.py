@@ -44,6 +44,12 @@ class IVMIShell(cmd.Cmd):
         res=self.ivmi.proc_modules(int(arg))
         print(repr(res))
 
+    def do_read_mem(self, arg):
+        'Read memory  <pid (0 if physical)> <address> <length>'
+        args=arg.split()
+        res=self.ivmi.read_mem(int(args[0]),int(args[1]),int(args[2]))
+        print(repr(res))
+
     def do_close(self, arg):
         'Close introspection context'
         self.ivmi.close()

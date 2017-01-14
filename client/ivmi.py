@@ -94,6 +94,14 @@ class IVMI():
         self.socket.close()
         return ret
 
+    def read_mem(self, pid, addr, length):
+        'Read memory from virtual address'
+        if not self.socket:
+            print ('Not connected!')
+            return False        
+        self.socket.send(bytes(json.dumps({"cmd": self.CMD_MEM_R, "pid": pid, "addr": addr, "len": length}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+       
     def pause(self):
         'Pause VM'
         if not self.socket:

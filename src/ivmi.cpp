@@ -8,6 +8,7 @@
 #include <json-c/json.h>
 #include <zmqpp/zmqpp.hpp>
 #include "ivmi.h"
+#include "base64.h"
 
 using namespace std;
 
@@ -355,6 +356,54 @@ json_object* handle_process_list(){
     }
 }
 
+json_object* handle_mem_read(json_object *json_pkt){
+    json_object* pid_json;
+    json_object* addr_json;
+    json_object* len_json;
+
+    json_object_object_get_ex(json_pkt, "pid", &pid_json);
+    json_object_object_get_ex(json_pkt, "addr", &addr_json);
+    json_object_object_get_ex(json_pkt, "len", &len_json);
+
+    addr_t pid;
+    addr_t addr;
+    uint32_t len;
+
+    pid=json_object_get_int64(pid_json);
+    addr=json_object_get_int64(addr_json);
+    len=json_object_get_int(len_json);
+
+    json_object_put(pid_json);
+    json_object_put(addr_json);
+    json_object_put(len_json);
+
+    void* buf=malloc(len);
+
+    if (!buf){
+        return handle_error(1);
+    }
+
+    vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
+    drakvuf_pause(ivmi_ctx.drakvuf);
+    size_t read=0;
+    if (pid==0){
+        read=vmi_read_pa(vmi, addr, buf, len);
+    }else{
+        read=vmi_read_va(vmi, addr, pid, buf, len);
+    }
+   
+    drakvuf_resume(ivmi_ctx.drakvuf);
+    drakvuf_release_vmi(ivmi_ctx.drakvuf);
+
+    if (read!=len){
+        free(buf);
+        return handle_error(2);
+    }
+
+    string mem=base64_encode(reinterpret_cast<const unsigned char*>(buf), len);
+    return json_object_new_string(mem.c_str());
+}
+
 json_object* handle_command(json_object *json_pkt){
     json_object* json_cmd = NULL;
     try{
@@ -380,7 +429,7 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_resume();
                 break;
             case CMD_MEM_R:
-                json_resp=handle_error(-1);
+                json_resp=handle_mem_read(json_pkt);
                 break;
             case CMD_MEM_W:
                 json_resp=handle_error(-1);
