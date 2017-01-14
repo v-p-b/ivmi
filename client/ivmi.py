@@ -15,6 +15,7 @@ class IVMI():
     CMD_INFO = 0x10
     CMD_PROC_LIST = 0x11
     CMD_FIND_PROC = 0x12
+    CMD_PROC_MODULES = 0x13
     CMD_CLOSE = 0xf0
     CMD_BYE = 0xff
 
@@ -72,7 +73,15 @@ class IVMI():
         if not self.socket:
             print ('Not connected!')
             return False        
-        self.socket.send(bytes(json.dumps({"cmd":self.CMD_FIND_PROC,"pid":pid}),"utf-8"))
+        self.socket.send(bytes(json.dumps({"cmd": self.CMD_FIND_PROC, "pid": pid}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+
+    def proc_modules(self, pid):
+        'Find process modules based on PID'
+        if not self.socket:
+            print ('Not connected!')
+            return False        
+        self.socket.send(bytes(json.dumps({"cmd": self.CMD_PROC_MODULES, "pid": pid}),"utf-8"))
         return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
     def close(self):

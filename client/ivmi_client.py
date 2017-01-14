@@ -39,6 +39,11 @@ class IVMIShell(cmd.Cmd):
         res=self.ivmi.find_pid(int(arg))
         print(repr(res))
 
+    def do_modules(self, arg):
+        'List process modules based on EPROCESS and PID'
+        res=self.ivmi.proc_modules(int(arg))
+        print(repr(res))
+
     def do_close(self, arg):
         'Close introspection context'
         self.ivmi.close()

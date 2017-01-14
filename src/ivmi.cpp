@@ -170,12 +170,72 @@ json_object* handle_find_process(json_object* json_pkt){
 
     addr_t eprocess_addr;
     int64_t pid=json_object_get_int64(pid_json);
-    cout << pid << endl;
     drakvuf_find_eprocess(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
 
     json_object_put(pid_json);
 
     return json_object_new_int64(eprocess_addr);
+}
+
+json_object* handle_process_modules(json_object* json_pkt){
+    json_object* ret=json_object_new_array();
+
+    json_object* pid_json;
+    json_object_object_get_ex(json_pkt, "pid", &pid_json); 
+
+    addr_t pid=json_object_get_int64(pid_json);
+    addr_t eprocess_addr = 0;
+
+    drakvuf_find_eprocess(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
+
+    json_object_put(pid_json);
+
+    addr_t module_list = 0;
+
+    drakvuf_get_module_list(ivmi_ctx.drakvuf, eprocess_addr, &module_list);
+    vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
+
+    addr_t list_head = module_list;
+    addr_t next_module = list_head;
+
+    while (true) {
+        addr_t tmp_next = 0;
+        vmi_read_addr_va(vmi, next_module, pid, &tmp_next);
+
+        if (list_head == tmp_next)
+            break;
+
+        json_object* mod_json=json_object_new_object();
+
+        addr_t dllbase = 0;
+        addr_t dllbase_offset = 0;
+        addr_t dllname_offset = 0;
+        drakvuf_get_struct_member_rva(drakvuf_get_rekall_profile(ivmi_ctx.drakvuf), "_LDR_DATA_TABLE_ENTRY", "DllBase", &dllbase_offset);
+        drakvuf_get_struct_member_rva(drakvuf_get_rekall_profile(ivmi_ctx.drakvuf), "_LDR_DATA_TABLE_ENTRY", "BaseDllName", &dllname_offset);
+        vmi_read_addr_va(vmi, next_module + dllbase_offset, pid, &dllbase);
+        if (!dllbase){
+            cout << "No dllbase" << endl;
+            break;
+        }
+        unicode_string_t *us = vmi_read_unicode_str_va(vmi, next_module + dllname_offset, pid);
+        unicode_string_t out;
+        if (us){
+            status_t status = vmi_convert_str_encoding(us, &out, "UTF-8");
+            cout << out.contents << endl;
+            if(VMI_SUCCESS == status){
+                json_object_object_add(mod_json, "base", json_object_new_int64(dllbase));
+                json_object_object_add(mod_json, "name", json_object_new_string((char*)out.contents));
+                json_object_array_add(ret, mod_json);
+            }
+            vmi_free_unicode_str(us);
+        }else{
+            cout << "No us" << endl;
+            break;
+        }
+        next_module = tmp_next;
+        // https://github.com/v-p-b/drakvuf/blob/proctracer_rebase/src/plugins/proctracer/proctracer.cpp
+    }
+    return ret;
 }
 
 json_object* handle_process_list(){
@@ -345,6 +405,9 @@ json_object* handle_command(json_object *json_pkt){
                 break;
             case CMD_FIND_PROC:
                 json_resp=handle_find_process(json_pkt);
+                break;
+            case CMD_PROC_MODULES:
+                json_resp=handle_process_modules(json_pkt);
                 break;
             case CMD_CLOSE:
                 json_resp=handle_close();
