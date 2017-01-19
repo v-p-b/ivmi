@@ -4,7 +4,7 @@ include(ExternalProject)
 
 ExternalProject_Add(drakvuf
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/drakvuf
-    CONFIGURE_COMMAND <SOURCE_DIR>/configure
+    CONFIGURE_COMMAND <SOURCE_DIR>/configure --enable-debug --disable-plugin-cpuidmon --disable-plugin-debugmon --disable-plugin-ssdtmon --disable-plugin-objmon --disable-plugin-filedelete --disable-plugin-filetracer --disable-plugin-poolmon --disable-plugin-syscalls
     STEP_TARGETS build
     INSTALL_COMMAND true
     BUILD_COMMAND ${MAKE})
