@@ -56,6 +56,17 @@ class IVMIShell(cmd.Cmd):
         res=self.ivmi.write_mem(int(args[0]),int(args[1]),args[2])
         print(repr(res))
 
+    def do_add_trap(self, arg):
+        'Add trap TESTING'
+        trap=ivmi.IVMITrap()
+        trap.module="ntoskrnl.exe"
+        trap.pid=4
+        trap.addr_type="RVA"
+        trap.lookup_type="PID"
+        trap.addr=774598 # KiDispatchException From testx86.rekall.json !
+        res=self.ivmi.add_trap(trap)
+        print(repr(res))
+
     def do_close(self, arg):
         'Close introspection context'
         self.ivmi.close()

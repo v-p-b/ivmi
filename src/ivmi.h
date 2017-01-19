@@ -28,11 +28,8 @@ enum VEBUG_CMD
 typedef struct ivmi {
     drakvuf_t drakvuf;
     GThread* drakvuf_loop;
-    uint64_t domid;
-    struct{
-        uint64_t pid;
-        uint64_t cr3;
-    } process;
+    char* domain;
+    bool paused;
 } ivmi_t;
 
 #endif

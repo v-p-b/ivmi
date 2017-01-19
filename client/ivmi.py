@@ -1,6 +1,31 @@
 import zmq
 import json
 
+class IVMITrap():
+    addr_type="PA"
+    lookup_type="NONE"
+    pid=0
+    module=""
+    proc=""
+    addr=0
+
+class IVMITrapEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, IVMITrap):
+            if obj.lookup_type not in ("NONE","PID","DTB","NAME"):
+                raise Exception("Invalid Lookup type %s" % obj.lookup_type)
+            if obj.addr_type not in ("PA","VA","RVA"):
+                raise Exception("Invalid Address type %s" % obj.addr_type)
+            ret={}
+            ret["lookup_type"]=obj.lookup_type
+            ret["addr_type"]=obj.addr_type
+            ret["pid"]=int(obj.pid)
+            ret["module"]=str(obj.module)
+            ret["proc"]=str(obj.proc)
+            ret["addr"]=int(obj.addr)
+            return ret
+        return json.JSONEncoder.default(self, obj)
+
 class IVMI():
     CMD_LIST = 0x1
     CMD_INIT = 0x2
@@ -110,7 +135,6 @@ class IVMI():
         self.socket.send(bytes(json.dumps({"cmd": self.CMD_MEM_W, "pid": pid, "addr": addr, "contents": contents}),"utf-8"))
         return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
-
     def pause(self):
         'Pause VM'
         if not self.socket:
@@ -127,3 +151,14 @@ class IVMI():
         self.socket.send(bytes(json.dumps({"cmd":self.CMD_RESUME}),"utf-8"))
         return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
+    def add_trap(self, trap):
+        'Add Trap'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        trap_encoded=IVMITrapEncoder().default(trap)
+        print(repr(trap_encoded))
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_TRAP_ADD, "trap":trap_encoded}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+
+       

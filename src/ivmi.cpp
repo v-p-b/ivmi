@@ -14,6 +14,10 @@ using namespace std;
 
 ivmi_t ivmi_ctx;
 
+static event_response_t cb(drakvuf_t drakvuf, drakvuf_trap_info_t *info){
+    cout << "Breakpoint callback" << endl;
+}
+
 json_object* handle_error(int32_t e){
     json_object* resp=json_object_new_object();
     json_object* errcode=json_object_new_int(e);
@@ -22,10 +26,126 @@ json_object* handle_error(int32_t e){
     return resp;
 }
 
+json_object* handle_trap_add(json_object* json_pkt){
+    // Best effort: We try to construct a valid trap, if libdrakvuf can't handle it, it's the users problem
+
+    drakvuf_trap_t *trap = (drakvuf_trap_t*)malloc(sizeof(drakvuf_trap_t));
+
+
+    json_object* json_trap = NULL;
+
+    json_object* lookup_type_json = NULL;
+    json_object* addr_type_json = NULL;
+    json_object* addr_json = NULL;
+
+    try{
+         if (!json_object_object_get_ex(json_pkt,"trap",&json_trap)){
+            throw 1;
+        }
+
+        if (!json_object_object_get_ex(json_trap,"lookup_type",&lookup_type_json)){
+            throw 2;
+        }
+        if (!json_object_object_get_ex(json_trap,"addr_type",&addr_type_json)){
+            throw 3;
+        }
+        if (!json_object_object_get_ex(json_trap,"addr",&addr_json)){
+            throw 4;
+        }
+    
+        char* lookup_type = strdup(json_object_get_string(lookup_type_json));
+        char* addr_type = strdup(json_object_get_string(addr_type_json));
+        addr_t addr = json_object_get_int64(addr_json);
+        cout << addr << endl; 
+        json_object_put(lookup_type_json);
+        json_object_put(addr_type_json);
+        json_object_put(addr_json);
+
+        if (!strcmp(lookup_type, "NONE")){
+            trap->breakpoint.lookup_type = LOOKUP_NONE;
+        }else if (!strcmp(lookup_type, "DTB")){
+            trap->breakpoint.lookup_type = LOOKUP_DTB;
+        }else if (!strcmp(lookup_type, "PID")){
+            trap->breakpoint.lookup_type = LOOKUP_PID;
+        }else if (!strcmp(lookup_type, "NAME")){
+            trap->breakpoint.lookup_type = LOOKUP_NAME;
+        }
+
+        if (!strcmp(addr_type, "PA")){
+           trap->breakpoint.addr_type = ADDR_PA; 
+        }else if (!strcmp(addr_type, "VA")){
+           trap->breakpoint.addr_type = ADDR_VA; 
+        }else if (!strcmp(addr_type, "RVA")){
+           trap->breakpoint.addr_type = ADDR_RVA; 
+        }
+
+        free(lookup_type);
+        free(addr_type);
+
+        trap->type = BREAKPOINT;    
+        trap->name = "";
+        trap->cb = cb;
+        trap->data = NULL;
+
+        // Only seems to be relevant in vmi/inject_traps()
+        if (trap->breakpoint.addr_type == ADDR_RVA){ 
+            trap->breakpoint.rva = addr; 
+        }else{
+            trap->breakpoint.addr = addr; 
+        }
+        
+        if (trap->breakpoint.addr_type == ADDR_VA){
+            json_object* pid_json;
+            json_object* dtb_json;
+            if (json_object_object_get_ex(json_trap, "pid", &pid_json)){
+                trap->breakpoint.pid = json_object_get_int64(pid_json);
+                json_object_put(pid_json); 
+            }else if (json_object_object_get_ex(json_trap, "dtb", &dtb_json)){
+                trap->breakpoint.dtb = json_object_get_int64(dtb_json);
+                json_object_put(dtb_json); 
+            }
+        }else if (trap->breakpoint.addr_type == ADDR_RVA){
+            json_object* pid_json;
+            json_object* proc_json;
+            json_object* module_json;
+            if (json_object_object_get_ex(json_trap, "pid", &pid_json)){
+                trap->breakpoint.pid = json_object_get_int64(pid_json);
+                cout << trap->breakpoint.pid << endl;
+                json_object_put(pid_json); 
+            }else if (json_object_object_get_ex(json_trap, "proc", &proc_json)){
+                trap->breakpoint.proc = strdup(json_object_get_string(proc_json));
+                json_object_put(proc_json); 
+            }
+
+            if (json_object_object_get_ex(json_trap, "module", &module_json)){
+                trap->breakpoint.module = strdup(json_object_get_string(module_json));
+                cout << trap->breakpoint.module << endl;
+                json_object_put(module_json); 
+            }
+       } 
+
+        json_object_put(json_trap);
+        if (!drakvuf_add_trap(ivmi_ctx.drakvuf, trap)){
+            free(trap);
+            return handle_error(255);
+        }
+
+        // We return the address of the trap pointer so it can be looked up for removal
+        return json_object_new_int64(reinterpret_cast<size_t>(trap));
+    }catch(int ex){
+        if (lookup_type_json) json_object_put(lookup_type_json);
+        if (addr_type_json) json_object_put(addr_type_json);
+        if (addr_json) json_object_put(addr_json);
+        free(trap);
+        return handle_error(ex);
+    }
+}
+
 json_object* handle_pause()
 {
     if (ivmi_ctx.drakvuf){
         drakvuf_pause(ivmi_ctx.drakvuf);
+        ivmi_ctx.paused = true;
     }else{
         return handle_error(1);
     }
@@ -36,45 +156,11 @@ json_object* handle_resume()
 {
     if (ivmi_ctx.drakvuf){
         drakvuf_resume(ivmi_ctx.drakvuf);
+        ivmi_ctx.paused = false;
     }else{
         return handle_error(1);
     }
     return json_object_new_string("OK");
-}
-
-void* handle_mem_read()
-{
-    return NULL;
-}
-
-void* handle_mem_write()
-{
-    return NULL;
-}
-
-void* handle_reg_read()
-{
-    return NULL;
-}
-
-void* handle_reg_write()
-{
-    return NULL;
-}
-
-void* handle_trap_add()
-{
-    return NULL;
-}
-
-void* handle_trap_del()
-{
-    return NULL;
-}
-
-void* handle_proc_attach()
-{
-    return NULL;
 }
 
 json_object* handle_vm_list(){
@@ -93,6 +179,10 @@ json_object* handle_vm_list(){
 }
 
 json_object* handle_info(){
+    if (!ivmi_ctx.domain){
+        return handle_error(0);
+    }
+
     json_object* ret = json_object_new_object();
     
     os_t os_type = drakvuf_get_os_type(ivmi_ctx.drakvuf);
@@ -103,6 +193,8 @@ json_object* handle_info(){
     vmi_pid_t process_pid;
     drakvuf_get_process_pid(ivmi_ctx.drakvuf, curr_proc, &process_pid);
 
+    json_object_object_add(ret,"domain",json_object_new_string(ivmi_ctx.domain));
+    json_object_object_add(ret,"paused",json_object_new_int(ivmi_ctx.paused));
     json_object_object_add(ret,"os",json_object_new_int64(os_type));
     json_object_object_add(ret,"kernel_base",json_object_new_int64(kernel_base));
     json_object_object_add(ret,"current_process",json_object_new_int64(curr_proc));
@@ -120,9 +212,6 @@ json_object* handle_init(json_object* json_pkt){
     json_object* json_domain;
     json_object* json_profile;
 
-    ivmi_ctx.domid=0;
-    ivmi_ctx.process.pid=0;
-    ivmi_ctx.process.cr3=0;
 
     if (!json_object_object_get_ex(json_pkt, "domain", &json_domain)){
         return handle_error(1);
@@ -144,11 +233,13 @@ json_object* handle_init(json_object* json_pkt){
         free(domain);
         return handle_error(3);
     }    
+    
+    ivmi_ctx.domain=domain;
 
     ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
     // TODO free JSON objects!
-    free(domain);
     drakvuf_pause(ivmi_ctx.drakvuf);
+    ivmi_ctx.paused = true;
     return handle_info();
 } 
 
@@ -157,10 +248,9 @@ json_object* handle_close(){
         drakvuf_interrupt(ivmi_ctx.drakvuf,9);
         g_thread_join(ivmi_ctx.drakvuf_loop);
         drakvuf_close(ivmi_ctx.drakvuf, false);
-        ivmi_ctx.domid=0;
-        ivmi_ctx.process.pid=0;
-        ivmi_ctx.process.cr3=0;
-        ivmi_ctx.drakvuf=NULL;
+        free(ivmi_ctx.domain);
+        ivmi_ctx.domain = NULL;
+        ivmi_ctx.drakvuf = NULL;
     } 
     return json_object_new_string("OK");
 }
@@ -282,7 +372,9 @@ json_object* handle_process_list(){
             throw 0x12;
         }
 
-        drakvuf_pause(ivmi_ctx.drakvuf);
+        if (!ivmi_ctx.paused){
+            drakvuf_pause(ivmi_ctx.drakvuf);
+        }
 
         /* get the head of the list */
         if (VMI_OS_LINUX == drakvuf_get_os_type(ivmi_ctx.drakvuf)) {
@@ -348,7 +440,9 @@ json_object* handle_process_list(){
             }
 
         } while(next_list_entry != list_head);
-        drakvuf_resume(ivmi_ctx.drakvuf);
+        if (!ivmi_ctx.paused){
+            drakvuf_resume(ivmi_ctx.drakvuf);
+        }
         drakvuf_release_vmi(ivmi_ctx.drakvuf);
         return ret;
     }catch(int ex){
@@ -384,15 +478,18 @@ json_object* handle_mem_read(json_object *json_pkt){
     }
 
     vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf); 
-    drakvuf_pause(ivmi_ctx.drakvuf); // Consistent read
+    if (!ivmi_ctx.paused){
+        drakvuf_pause(ivmi_ctx.drakvuf); // Consistent read
+    }
     size_t read=0;
     if (pid==0){
         read=vmi_read_pa(vmi, addr, buf, len);
     }else{
         read=vmi_read_va(vmi, addr, pid, buf, len);
     }
-   
-    drakvuf_resume(ivmi_ctx.drakvuf);
+    if (!ivmi_ctx.paused){
+        drakvuf_resume(ivmi_ctx.drakvuf);
+    }
     drakvuf_release_vmi(ivmi_ctx.drakvuf);
 
     if (read!=len){
@@ -433,15 +530,19 @@ json_object* handle_mem_write(json_object *json_pkt){
     memcpy(buf, sbuf.data(), sbuf.length());
 
     vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf); 
-    drakvuf_pause(ivmi_ctx.drakvuf); // Consistent write
+    if (!ivmi_ctx.paused){
+        drakvuf_pause(ivmi_ctx.drakvuf); // Consistent write
+    }
     size_t wrote=0;
     if (pid==0){
         wrote=vmi_write_pa(vmi, addr, buf, sbuf.length());
     }else{
         wrote=vmi_write_va(vmi, addr, pid, buf, sbuf.length());
     }
-   
-    drakvuf_resume(ivmi_ctx.drakvuf);
+  
+    if (ivmi_ctx.paused){ 
+        drakvuf_resume(ivmi_ctx.drakvuf);
+    }
     drakvuf_release_vmi(ivmi_ctx.drakvuf);
 
     free(buf);
@@ -491,7 +592,7 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_error(-1);
                 break;
             case CMD_TRAP_ADD:
-                json_resp=handle_error(-1);
+                json_resp=handle_trap_add(json_pkt);
                 break;
             case CMD_TRAP_DEL:
                 json_resp=handle_error(-1);
