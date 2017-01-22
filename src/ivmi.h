@@ -4,6 +4,9 @@
 #include <libdrakvuf/libdrakvuf.h>
 #include <unistd.h>
 #include <glib.h>
+#include <zmqpp/zmqpp.hpp>
+#include <unordered_map>
+#include <string>
 
 enum VEBUG_CMD
 {
@@ -21,6 +24,7 @@ enum VEBUG_CMD
     CMD_PROC_LIST = 0x11,
     CMD_FIND_PROC = 0x12,
     CMD_PROC_MODULES = 0x13,
+    CMD_NOTIFY_CONT = 0x80,
     CMD_CLOSE = 0xf0,
     CMD_BYE = 0xff
 };
@@ -30,6 +34,10 @@ typedef struct ivmi {
     GThread* drakvuf_loop;
     char* domain;
     bool paused;
+    bool closing;
+    zmqpp::socket* notify;
+    gint notify_lock;
+    std::unordered_map<std::string, drakvuf_trap_t*> traps;
 } ivmi_t;
 
 #endif

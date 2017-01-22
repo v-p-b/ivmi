@@ -2,6 +2,7 @@ import zmq
 import json
 
 class IVMITrap():
+    name=""
     addr_type="PA"
     lookup_type="NONE"
     pid=0
@@ -17,6 +18,7 @@ class IVMITrapEncoder(json.JSONEncoder):
             if obj.addr_type not in ("PA","VA","RVA"):
                 raise Exception("Invalid Address type %s" % obj.addr_type)
             ret={}
+            ret["name"]=str(obj.name)
             ret["lookup_type"]=obj.lookup_type
             ret["addr_type"]=obj.addr_type
             ret["pid"]=int(obj.pid)
@@ -41,15 +43,43 @@ class IVMI():
     CMD_PROC_LIST = 0x11
     CMD_FIND_PROC = 0x12
     CMD_PROC_MODULES = 0x13
+    CMD_NOTIFY_CONT = 0x80
     CMD_CLOSE = 0xf0
     CMD_BYE = 0xff
 
-    def connect(self, url):
+    def __init__(self):
+        _traps = {}
+
+    def connect(self, url, notify_url):
         'Connects to the remote iVMI queue specified as argument'
         self.context=zmq.Context()
         self.socket=self.context.socket(zmq.REQ)
         self.socket.connect(url)
+        self.notify=self.context.socket(zmq.PULL)
+        self.notify.connect(notify_url)
         return (self.context, self.socket)
+
+    def ack_notification(self):
+        if not self.notify:
+            print ('Not connected!')
+            return False
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_NOTIFY_CONT}),"utf-8")) 
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+
+    def get_notification(self, ack=True, blocking=False):
+        if not self.notify:
+            print ('Not connected!')
+            return False
+        flags=None
+        if not blocking:
+            flags=zmq.NOBLOCK
+        try:
+            ret=json.loads(self.notify.recv(flags).decode('utf-8', errors='replace'))
+            if ack: 
+                self.ack_notification()
+            return ret
+        except zmq.error.Again:
+            return None
 
     def list(self):
         'List running domains'
@@ -157,8 +187,18 @@ class IVMI():
             print ('Not connected!')
             return False
         trap_encoded=IVMITrapEncoder().default(trap)
-        print(repr(trap_encoded))
         self.socket.send(bytes(json.dumps({"cmd":self.CMD_TRAP_ADD, "trap":trap_encoded}),"utf-8"))
-        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+        ret = json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+        return ret
+
+    def del_trap(self, trap_name):
+        'Remove trap (by trap name)'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        self.socket.send(bytes(json.dumps({"cmd":self.CMD_TRAP_DEL, "trap_name":trap_name}),"utf-8"))
+        ret = json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+        return ret
 
        
+ 

@@ -8,7 +8,8 @@ class IVMIShell(cmd.Cmd):
 
     def do_connect(self, arg):
         'Connects to the remote iVMI queue specified as argument'
-        self.ivmi.connect(arg)
+        args=arg.split()
+        self.ivmi.connect(args[0],args[1])
         self.prompt="ivmi[%s]# " % arg
     
     def do_list(self, arg):
@@ -59,6 +60,7 @@ class IVMIShell(cmd.Cmd):
     def do_add_trap(self, arg):
         'Add trap TESTING'
         trap=ivmi.IVMITrap()
+        trap.name="KiDispatchException"
         trap.module="ntoskrnl.exe"
         trap.pid=4
         trap.addr_type="RVA"
@@ -66,6 +68,15 @@ class IVMIShell(cmd.Cmd):
         trap.addr=774598 # KiDispatchException From testx86.rekall.json !
         res=self.ivmi.add_trap(trap)
         print(repr(res))
+
+    def do_get_notifications(self, arg):
+        n=self.ivmi.get_notification()
+        ret=[]
+        while n != None:
+            ret.append(n)
+            n=self.ivmi.get_notification()
+        print(repr(ret))
+
 
     def do_close(self, arg):
         'Close introspection context'

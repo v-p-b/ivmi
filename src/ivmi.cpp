@@ -14,8 +14,101 @@ using namespace std;
 
 ivmi_t ivmi_ctx;
 
+
+json_object* serialize_trap(drakvuf_trap_t *trap){
+    json_object* ret=json_object_new_object();
+    string type;
+
+    if (trap->type == BREAKPOINT){
+        type="BREAKPOINT";
+    }else if (trap->type == MEMACCESS){
+        type="MEMACCESS";    
+    }else if (trap->type == REGISTER){
+        type="REGISTER";
+    }else if (trap->type == DEBUG){
+        type="DEBUG";
+    }else if (trap->type == CPUID){
+        type="CPUID";
+    }else{
+        type="INVALID";
+    }
+
+    json_object_object_add(ret,"type",json_object_new_string(type.c_str()));
+
+    if (trap->type == BREAKPOINT){
+        string addr_type, lookup_type;
+
+        if (trap->breakpoint.lookup_type == LOOKUP_NONE){
+            lookup_type="NONE";
+        }else if(trap->breakpoint.lookup_type == LOOKUP_PID){
+            lookup_type="PID";
+        }else if(trap->breakpoint.lookup_type == LOOKUP_DTB){
+            lookup_type="DTB";
+        }else if(trap->breakpoint.lookup_type == LOOKUP_NAME){
+            lookup_type="NAME";
+        }else{
+            lookup_type="INVALID";
+        }
+        json_object_object_add(ret,"lookup_type",json_object_new_string(lookup_type.c_str()));
+        
+        if (trap->breakpoint.addr_type == ADDR_PA){
+            addr_type="PA";
+            json_object_object_add(ret, "addr", json_object_new_int64(trap->breakpoint.addr));
+        }else if(trap->breakpoint.addr_type == ADDR_VA){
+            addr_type="VA";
+            json_object_object_add(ret, "addr", json_object_new_int64(trap->breakpoint.addr));
+        }else if(trap->breakpoint.addr_type == ADDR_RVA){
+            addr_type="RVA";
+            json_object_object_add(ret, "rva", json_object_new_int64(trap->breakpoint.rva));
+        }else{
+            addr_type="INVALID";
+        }
+        json_object_object_add(ret,"addr_type",json_object_new_string(addr_type.c_str()));
+        json_object_object_add(ret,"module",json_object_new_string(trap->breakpoint.module));
+    }
+    // TODO MEMACCESS
+
+
+    return ret;
+}
+
+json_object* serialize_trap_info(drakvuf_trap_info_t *info){
+    json_object* ret=json_object_new_object();
+    json_object_object_add(ret,"vcpu",json_object_new_int(info->vcpu));
+    json_object_object_add(ret,"altp2m_idx",json_object_new_int(info->altp2m_idx));
+    json_object_object_add(ret,"procname",json_object_new_string(info->procname));
+    json_object_object_add(ret,"sessionid",json_object_new_int64(info->sessionid));
+    json_object_object_add(ret,"trap_pa",json_object_new_int64(info->trap_pa));
+    // TODO regs
+    json_object_object_add(ret,"trap",serialize_trap(info->trap));
+    return ret;
+}
+
 static event_response_t cb(drakvuf_t drakvuf, drakvuf_trap_info_t *info){
     cout << "Breakpoint callback" << endl;
+
+    if (ivmi_ctx.closing) return VMI_SUCCESS;
+
+    zmqpp::message notification, ack;
+
+    json_object* notify_json = serialize_trap_info(info);
+
+    char *resp = strdup(json_object_to_json_string(notify_json));
+    notification << resp;
+
+    // Blocking
+    ivmi_ctx.notify->send(notification);
+
+    free(resp);
+    json_object_put(notify_json);
+    
+    // Blocking
+    g_bit_lock(&ivmi_ctx.notify_lock, 1);
+}
+
+json_object* handle_notify_cont(){
+    g_bit_unlock(&ivmi_ctx.notify_lock, 1);
+    return json_object_new_string("OK");
 }
 
 json_object* handle_error(int32_t e){
@@ -24,6 +117,20 @@ json_object* handle_error(int32_t e){
     json_object_object_add(resp, "error", errcode);
     json_object_put(errcode);
     return resp;
+}
+
+json_object* handle_trap_del(json_object* json_pkt){
+    json_object* trap_name_json;
+    string trap_name;
+
+    json_object_object_get_ex(json_pkt,"trap_name",&trap_name_json);
+    trap_name=json_object_get_string(trap_name_json);
+    json_object_put(trap_name_json);
+    if (ivmi_ctx.traps.find(trap_name) != ivmi_ctx.traps.end()){
+        drakvuf_remove_trap(ivmi_ctx.drakvuf, ivmi_ctx.traps[trap_name], NULL);
+        ivmi_ctx.traps.erase(trap_name);
+        return json_object_new_string("OK");
+    }else return handle_error(1);
 }
 
 json_object* handle_trap_add(json_object* json_pkt){
@@ -37,6 +144,7 @@ json_object* handle_trap_add(json_object* json_pkt){
     json_object* lookup_type_json = NULL;
     json_object* addr_type_json = NULL;
     json_object* addr_json = NULL;
+    json_object* name_json = NULL;
 
     try{
          if (!json_object_object_get_ex(json_pkt,"trap",&json_trap)){
@@ -52,9 +160,13 @@ json_object* handle_trap_add(json_object* json_pkt){
         if (!json_object_object_get_ex(json_trap,"addr",&addr_json)){
             throw 4;
         }
+        if (!json_object_object_get_ex(json_trap,"name",&name_json)){
+            throw 5;
+        }
     
         char* lookup_type = strdup(json_object_get_string(lookup_type_json));
         char* addr_type = strdup(json_object_get_string(addr_type_json));
+        char* name = strdup(json_object_get_string(name_json));
         addr_t addr = json_object_get_int64(addr_json);
         cout << addr << endl; 
         json_object_put(lookup_type_json);
@@ -83,7 +195,7 @@ json_object* handle_trap_add(json_object* json_pkt){
         free(addr_type);
 
         trap->type = BREAKPOINT;    
-        trap->name = "";
+        trap->name = name;
         trap->cb = cb;
         trap->data = NULL;
 
@@ -129,7 +241,9 @@ json_object* handle_trap_add(json_object* json_pkt){
             free(trap);
             return handle_error(255);
         }
-
+        
+        ivmi_ctx.traps[name]=trap;
+        
         // We return the address of the trap pointer so it can be looked up for removal
         return json_object_new_int64(reinterpret_cast<size_t>(trap));
     }catch(int ex){
@@ -234,7 +348,9 @@ json_object* handle_init(json_object* json_pkt){
         return handle_error(3);
     }    
     
-    ivmi_ctx.domain=domain;
+    ivmi_ctx.domain = domain;
+    g_bit_trylock(&ivmi_ctx.notify_lock,1);
+    ivmi_ctx.closing = false;
 
     ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
     // TODO free JSON objects!
@@ -245,8 +361,18 @@ json_object* handle_init(json_object* json_pkt){
 
 json_object* handle_close(){
     if (ivmi_ctx.drakvuf){
+        ivmi_ctx.closing=true;
+        for (auto& t: ivmi_ctx.traps){
+            cout << "Freeing " << t.first << endl;
+            drakvuf_remove_trap(ivmi_ctx.drakvuf,t.second,NULL);
+        }
+        ivmi_ctx.traps.clear();
+
         drakvuf_interrupt(ivmi_ctx.drakvuf,9);
+        cout << "Closing, interrupted" <<endl;
         g_thread_join(ivmi_ctx.drakvuf_loop);
+        cout << "Closing, joined" <<endl;
+        
         drakvuf_close(ivmi_ctx.drakvuf, false);
         free(ivmi_ctx.domain);
         ivmi_ctx.domain = NULL;
@@ -595,7 +721,7 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_trap_add(json_pkt);
                 break;
             case CMD_TRAP_DEL:
-                json_resp=handle_error(-1);
+                json_resp=handle_trap_del(json_pkt);
                 break;
             case CMD_INFO:
                 json_resp=handle_info();
@@ -608,6 +734,9 @@ json_object* handle_command(json_object *json_pkt){
                 break;
             case CMD_PROC_MODULES:
                 json_resp=handle_process_modules(json_pkt);
+                break;
+            case CMD_NOTIFY_CONT:
+                json_resp=handle_notify_cont();
                 break;
             case CMD_CLOSE:
                 json_resp=handle_close();
@@ -629,8 +758,12 @@ int main()
 {
     zmqpp::context context;
     zmqpp::socket server(context, zmqpp::socket_type::rep);
+    zmqpp::socket notify(context, zmqpp::socket_type::push);
 
     server.bind("tcp://127.0.0.1:22000");
+    notify.bind("tcp://127.0.0.1:22001");
+    ivmi_ctx.notify = &notify;
+    ivmi_ctx.notify_lock=0;
 
     while(1){
         zmqpp::message request;
@@ -646,7 +779,7 @@ int main()
         server.send(response);
 
         free(resp);
-        json_object_put(json_pkt);
-        json_object_put(json_resp);
+        if (json_pkt) json_object_put(json_pkt);
+        if (json_resp) json_object_put(json_resp);
     }
 }
