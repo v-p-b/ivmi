@@ -1,9 +1,3 @@
 [submodule "drakvuf"]
 	path = drakvuf
 	url = https://github.com/tklengyel/drakvuf
-[submodule "azmq"]
-	path = azmq
-	url = https://github.com/zeromq/azmq
-[submodule "libzmq"]
-	path = libzmq
-	url = https://github.com/zeromq/libzmq
