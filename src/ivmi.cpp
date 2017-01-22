@@ -72,15 +72,54 @@ json_object* serialize_trap(drakvuf_trap_t *trap){
     return ret;
 }
 
+json_object* serialize_x86_registers(x86_registers_t *regs){
+    json_object* ret=json_object_new_object();
+    
+    json_object_object_add(ret,"rax",json_object_new_int64(regs->rax));
+    json_object_object_add(ret,"rbx",json_object_new_int64(regs->rbx));
+    json_object_object_add(ret,"rcx",json_object_new_int64(regs->rcx));
+    json_object_object_add(ret,"rdx",json_object_new_int64(regs->rdx));
+    json_object_object_add(ret,"rsp",json_object_new_int64(regs->rsp));
+    json_object_object_add(ret,"rbp",json_object_new_int64(regs->rbp));
+    json_object_object_add(ret,"rsi",json_object_new_int64(regs->rsi));
+    json_object_object_add(ret,"rdi",json_object_new_int64(regs->rdi));
+    json_object_object_add(ret,"r8",json_object_new_int64(regs->r8));
+    json_object_object_add(ret,"r9",json_object_new_int64(regs->r9));
+    json_object_object_add(ret,"r10",json_object_new_int64(regs->r10));
+    json_object_object_add(ret,"r11",json_object_new_int64(regs->r11));
+    json_object_object_add(ret,"r12",json_object_new_int64(regs->r12));
+    json_object_object_add(ret,"r13",json_object_new_int64(regs->r13));
+    json_object_object_add(ret,"r14",json_object_new_int64(regs->r14));
+    json_object_object_add(ret,"r15",json_object_new_int64(regs->r15));
+    json_object_object_add(ret,"rflags",json_object_new_int64(regs->rflags));
+    json_object_object_add(ret,"dr7",json_object_new_int64(regs->dr7));
+    json_object_object_add(ret,"rip",json_object_new_int64(regs->rip));
+    json_object_object_add(ret,"cr0",json_object_new_int64(regs->cr0));
+    json_object_object_add(ret,"cr2",json_object_new_int64(regs->cr2));
+    json_object_object_add(ret,"cr3",json_object_new_int64(regs->cr3));
+    json_object_object_add(ret,"cr4",json_object_new_int64(regs->cr4));
+    json_object_object_add(ret,"sysenter_cs",json_object_new_int64(regs->sysenter_cs));
+    json_object_object_add(ret,"sysenter_esp",json_object_new_int64(regs->sysenter_esp));
+    json_object_object_add(ret,"sysenter_eip",json_object_new_int64(regs->sysenter_eip));
+    json_object_object_add(ret,"msr_efer",json_object_new_int64(regs->msr_efer));
+    json_object_object_add(ret,"msr_star",json_object_new_int64(regs->msr_star));
+    json_object_object_add(ret,"msr_lstar",json_object_new_int64(regs->msr_lstar));
+    json_object_object_add(ret,"fs_base",json_object_new_int64(regs->fs_base));
+    json_object_object_add(ret,"gs_base",json_object_new_int64(regs->gs_base));
+    json_object_object_add(ret,"cs_arbytes",json_object_new_int(regs->cs_arbytes));
+    json_object_object_add(ret,"_pad",json_object_new_int(regs->_pad));
+    return ret;
+}
+
 json_object* serialize_trap_info(drakvuf_trap_info_t *info){
     json_object* ret=json_object_new_object();
-    json_object_object_add(ret,"vcpu",json_object_new_int(info->vcpu));
-    json_object_object_add(ret,"altp2m_idx",json_object_new_int(info->altp2m_idx));
-    json_object_object_add(ret,"procname",json_object_new_string(info->procname));
-    json_object_object_add(ret,"sessionid",json_object_new_int64(info->sessionid));
-    json_object_object_add(ret,"trap_pa",json_object_new_int64(info->trap_pa));
-    // TODO regs
-    json_object_object_add(ret,"trap",serialize_trap(info->trap));
+    json_object_object_add(ret, "vcpu", json_object_new_int(info->vcpu));
+    json_object_object_add(ret, "altp2m_idx", json_object_new_int(info->altp2m_idx));
+    json_object_object_add(ret, "procname", json_object_new_string(info->procname));
+    json_object_object_add(ret, "sessionid", json_object_new_int64(info->sessionid));
+    json_object_object_add(ret, "trap_pa", json_object_new_int64(info->trap_pa));
+    json_object_object_add(ret, "regs", serialize_x86_registers(info->regs));
+    json_object_object_add(ret, "trap", serialize_trap(info->trap));
     return ret;
 }
 
