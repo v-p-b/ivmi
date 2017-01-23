@@ -66,11 +66,11 @@ class IVMI():
         self.socket.send(bytes(json.dumps({"cmd":self.CMD_NOTIFY_CONT}),"utf-8")) 
         return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
-    def get_notification(self, ack=True, blocking=False):
+    def get_notification(self, ack=False, blocking=False):
         if not self.notify:
             print ('Not connected!')
             return False
-        flags=None
+        flags=0
         if not blocking:
             flags=zmq.NOBLOCK
         try:
@@ -163,6 +163,22 @@ class IVMI():
             print ('Not connected!')
             return False        
         self.socket.send(bytes(json.dumps({"cmd": self.CMD_MEM_W, "pid": pid, "addr": addr, "contents": contents}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+    
+    def get_reg(self, reg, vcpuid=0):
+        'Get register value'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        self.socket.send(bytes(json.dumps({"cmd": self.CMD_REG_R, "reg": str(reg), "vcpuid": vcpuid}),"utf-8"))
+        return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
+
+    def set_reg(self, reg, value, vcpuid=0):
+        'Set register value'
+        if not self.socket:
+            print ('Not connected!')
+            return False
+        self.socket.send(bytes(json.dumps({"cmd": self.CMD_REG_W, "reg": str(reg), "value": int(value), "vcpuid": vcpuid}),"utf-8"))
         return json.loads(self.socket.recv().decode('utf-8',errors='replace'))
 
     def pause(self):

@@ -370,12 +370,13 @@ json_object* handle_init(json_object* json_pkt){
         return handle_error(1);
     }
     if (!json_object_object_get_ex(json_pkt, "profile", &json_profile)){
+        json_object_put(json_domain);
         return handle_error(2);
     }
 
     ofstream tmpf;
     string tmpn = tmpnam(NULL); // insecure
-    tmpf.open(tmpn); // TODO delete this after use!
+    tmpf.open(tmpn);
     cout << "Writing profile... " << tmpn << endl;
     tmpf << json_object_to_json_string(json_profile);
     tmpf.close();
@@ -383,6 +384,8 @@ json_object* handle_init(json_object* json_pkt){
     char *domain=strdup(json_object_get_string(json_domain));
 
     if (!drakvuf_init(&ivmi_ctx.drakvuf, domain, tmpn.c_str(), false)){
+        json_object_put(json_profile);
+        json_object_put(json_domain);
         free(domain);
         return handle_error(3);
     }    
@@ -391,8 +394,10 @@ json_object* handle_init(json_object* json_pkt){
     g_bit_trylock(&ivmi_ctx.notify_lock,1);
     ivmi_ctx.closing = false;
 
+    json_object_put(json_profile);
+    json_object_put(json_domain);
+
     ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
-    // TODO free JSON objects!
     drakvuf_pause(ivmi_ctx.drakvuf);
     ivmi_ctx.paused = true;
     return handle_info();
@@ -402,16 +407,15 @@ json_object* handle_close(){
     if (ivmi_ctx.drakvuf){
         ivmi_ctx.closing=true;
         for (auto& t: ivmi_ctx.traps){
-            cout << "Freeing " << t.first << endl;
             drakvuf_remove_trap(ivmi_ctx.drakvuf,t.second,NULL);
         }
         ivmi_ctx.traps.clear();
 
         drakvuf_interrupt(ivmi_ctx.drakvuf,9);
-        cout << "Closing, interrupted" <<endl;
         g_thread_join(ivmi_ctx.drakvuf_loop);
-        cout << "Closing, joined" <<endl;
-        
+
+        remove(drakvuf_get_rekall_profile(ivmi_ctx.drakvuf));
+
         drakvuf_close(ivmi_ctx.drakvuf, false);
         free(ivmi_ctx.domain);
         ivmi_ctx.domain = NULL;
@@ -719,6 +723,68 @@ json_object* handle_mem_write(json_object *json_pkt){
     return json_object_new_int(wrote);
 }
 
+json_object* handle_reg_get(json_object* json_pkt){
+    json_object* reg_json;
+    json_object* vcpuid_json;
+
+    reg_t vcpuid;
+    reg_t value;
+
+    if (!json_object_object_get_ex(json_pkt,"reg",&reg_json)){
+        return handle_error(1);
+    }
+    if (!json_object_object_get_ex(json_pkt,"vcpuid",&vcpuid_json)){
+        vcpuid=0;
+    }else{
+        vcpuid=json_object_get_int(vcpuid_json);
+        json_object_put(vcpuid_json);
+    }
+
+    string reg=json_object_get_string(reg_json);
+    json_object_put(reg_json);
+
+    if (ivmi_regs.count(reg)==1){
+        vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
+        vmi_get_vcpureg(vmi, &value, ivmi_regs[reg], vcpuid); 
+        drakvuf_release_vmi(ivmi_ctx.drakvuf);
+        return json_object_new_int64(value);
+    }else{
+        return handle_error(2);
+    }
+}
+
+json_object* handle_reg_set(json_object* json_pkt){
+    json_object* reg_json;
+    json_object* vcpuid_json;
+    json_object* value_json;
+
+    reg_t vcpuid;
+    int64_t value;
+
+    if (!json_object_object_get_ex(json_pkt,"reg",&reg_json) || !json_object_object_get_ex(json_pkt,"value",&value_json)){
+        return handle_error(1);
+    }
+
+    if (!json_object_object_get_ex(json_pkt,"vcpuid",&vcpuid_json)){
+        vcpuid=0;
+    }else{
+        vcpuid=json_object_get_int(vcpuid_json);
+        json_object_put(vcpuid_json);
+    }
+
+    string reg=json_object_get_string(reg_json);
+    value=json_object_get_int64(value_json);
+    json_object_put(reg_json);
+    json_object_put(value_json);
+
+    if (ivmi_regs.count(reg)==1){
+        vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
+        vmi_set_vcpureg(vmi, value, ivmi_regs[reg], vcpuid); 
+        drakvuf_release_vmi(ivmi_ctx.drakvuf);
+    }
+    return json_object_new_string("OK"); 
+}
+
 
 json_object* handle_command(json_object *json_pkt){
     json_object* json_cmd = NULL;
@@ -751,10 +817,10 @@ json_object* handle_command(json_object *json_pkt){
                 json_resp=handle_mem_write(json_pkt);
                 break;
             case CMD_REG_R:
-                json_resp=handle_error(-1);
+                json_resp=handle_reg_get(json_pkt);
                 break;
             case CMD_REG_W:
-                json_resp=handle_error(-1);
+                json_resp=handle_reg_set(json_pkt);
                 break;
             case CMD_TRAP_ADD:
                 json_resp=handle_trap_add(json_pkt);
@@ -810,8 +876,11 @@ int main()
         json_object* json_pkt = NULL;
 
         server.receive(request);
+        char* r=strdup(request.get(0).c_str());
 
-        json_pkt = json_tokener_parse(request.get(0).c_str());
+        json_pkt = json_tokener_parse(r);
+        free(r);
+
         json_object* json_resp = handle_command(json_pkt);
         char *resp = strdup(json_object_to_json_string(json_resp));
         response << resp;
