@@ -135,7 +135,6 @@ static event_response_t cb(drakvuf_t drakvuf, drakvuf_trap_info_t *info){
     char *resp = strdup(json_object_to_json_string(notify_json));
     notification << resp;
 
-    // Blocking
     ivmi_ctx.notify->send(notification);
 
     free(resp);
@@ -143,6 +142,8 @@ static event_response_t cb(drakvuf_t drakvuf, drakvuf_trap_info_t *info){
     
     // Blocking
     g_bit_lock(&ivmi_ctx.notify_lock, 1);
+
+    return VMI_SUCCESS;
 }
 
 json_object* handle_notify_cont(){
@@ -177,7 +178,6 @@ json_object* handle_trap_add(json_object* json_pkt){
 
     drakvuf_trap_t *trap = (drakvuf_trap_t*)malloc(sizeof(drakvuf_trap_t));
 
-
     json_object* json_trap = NULL;
 
     json_object* lookup_type_json = NULL;
@@ -207,7 +207,6 @@ json_object* handle_trap_add(json_object* json_pkt){
         char* addr_type = strdup(json_object_get_string(addr_type_json));
         char* name = strdup(json_object_get_string(name_json));
         addr_t addr = json_object_get_int64(addr_json);
-        cout << addr << endl; 
         json_object_put(lookup_type_json);
         json_object_put(addr_type_json);
         json_object_put(addr_json);
@@ -261,7 +260,6 @@ json_object* handle_trap_add(json_object* json_pkt){
             json_object* module_json;
             if (json_object_object_get_ex(json_trap, "pid", &pid_json)){
                 trap->breakpoint.pid = json_object_get_int64(pid_json);
-                cout << trap->breakpoint.pid << endl;
                 json_object_put(pid_json); 
             }else if (json_object_object_get_ex(json_trap, "proc", &proc_json)){
                 trap->breakpoint.proc = strdup(json_object_get_string(proc_json));
@@ -270,7 +268,6 @@ json_object* handle_trap_add(json_object* json_pkt){
 
             if (json_object_object_get_ex(json_trap, "module", &module_json)){
                 trap->breakpoint.module = strdup(json_object_get_string(module_json));
-                cout << trap->breakpoint.module << endl;
                 json_object_put(module_json); 
             }
        } 
