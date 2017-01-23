@@ -68,3 +68,5 @@ pkg_check_modules (GLIB2 REQUIRED glib-2.0)
 
 include_directories (${GLIB2_INCLUDE_DIRS})
 target_link_libraries (ivmi ${GLIB2_LIBRARIES})
+
+#include(ECMEnableSanitizers)
