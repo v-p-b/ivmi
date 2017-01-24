@@ -474,6 +474,9 @@ json_object* handle_find_process(json_object* json_pkt){
 }
 
 json_object* handle_process_modules(json_object* json_pkt){
+    if (ivmi_ctx.os != VMI_OS_WINDOWS){
+        return handle_error(99);
+    }
     json_object* ret=json_object_new_array();
 
     json_object* pid_json;
@@ -535,6 +538,9 @@ json_object* handle_process_modules(json_object* json_pkt){
 }
 
 json_object* handle_process_list(){
+    if (ivmi_ctx.os != VMI_OS_WINDOWS){
+        return handle_error(99);
+    }
     json_object *ret = json_object_new_array();
 
     vmi_instance_t vmi = drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
