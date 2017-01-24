@@ -116,7 +116,7 @@ json_object* serialize_trap_info(drakvuf_trap_info_t *info){
     json_object_object_add(ret, "vcpu", json_object_new_int(info->vcpu));
     json_object_object_add(ret, "altp2m_idx", json_object_new_int(info->altp2m_idx));
     json_object_object_add(ret, "procname", json_object_new_string(info->procname));
-    json_object_object_add(ret, "sessionid", json_object_new_int64(info->sessionid));
+    json_object_object_add(ret, "userid", json_object_new_int64(info->userid));
     json_object_object_add(ret, "trap_pa", json_object_new_int64(info->trap_pa));
     json_object_object_add(ret, "regs", serialize_x86_registers(info->regs));
     json_object_object_add(ret, "trap", serialize_trap(info->trap));
@@ -427,7 +427,7 @@ json_object* handle_find_process(json_object* json_pkt){
 
     addr_t eprocess_addr;
     int64_t pid=json_object_get_int64(pid_json);
-    drakvuf_find_eprocess(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
+    drakvuf_find_process(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
 
     json_object_put(pid_json);
 
@@ -443,7 +443,7 @@ json_object* handle_process_modules(json_object* json_pkt){
     addr_t pid=json_object_get_int64(pid_json);
     addr_t eprocess_addr = 0;
 
-    drakvuf_find_eprocess(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
+    drakvuf_find_process(ivmi_ctx.drakvuf, pid, 0, &eprocess_addr);
 
     json_object_put(pid_json);
 
