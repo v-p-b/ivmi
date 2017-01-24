@@ -36,6 +36,8 @@ typedef struct ivmi {
     char* domain;
     bool paused;
     bool closing;
+    os_t os;
+    page_mode_t pm; 
     zmqpp::socket* notify;
     gint notify_lock;
     std::unordered_map<std::string, drakvuf_trap_t*> traps;
