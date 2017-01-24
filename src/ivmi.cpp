@@ -335,7 +335,6 @@ json_object* handle_info(){
 
     json_object* ret = json_object_new_object();
     
-    os_t os_type = drakvuf_get_os_type(ivmi_ctx.drakvuf);
     addr_t kernel_base = drakvuf_get_kernel_base(ivmi_ctx.drakvuf);
     addr_t curr_proc = drakvuf_get_current_process(ivmi_ctx.drakvuf, 0); // TODO multi-CPU
     addr_t curr_thread = drakvuf_get_current_thread(ivmi_ctx.drakvuf, 0);
@@ -345,7 +344,38 @@ json_object* handle_info(){
 
     json_object_object_add(ret,"domain",json_object_new_string(ivmi_ctx.domain));
     json_object_object_add(ret,"paused",json_object_new_int(ivmi_ctx.paused));
-    json_object_object_add(ret,"os",json_object_new_int64(os_type));
+
+    switch(ivmi_ctx.os){
+        case VMI_OS_WINDOWS:
+            json_object_object_add(ret,"os",json_object_new_string("WINDOWS"));
+            break;
+        case VMI_OS_LINUX:
+            json_object_object_add(ret,"os",json_object_new_string("LINUX"));
+            break;
+        default:
+            json_object_object_add(ret,"os",json_object_new_string("UNKNOWN"));
+    }
+
+    switch(ivmi_ctx.pm){
+        case VMI_PM_LEGACY:
+            json_object_object_add(ret,"page_mode",json_object_new_string("LEGACY"));
+            break;
+        case VMI_PM_PAE:
+            json_object_object_add(ret,"page_mode",json_object_new_string("PAE"));
+            break;
+        case VMI_PM_IA32E:
+            json_object_object_add(ret,"page_mode",json_object_new_string("IA32E"));
+            break;
+        case VMI_PM_AARCH32:
+            json_object_object_add(ret,"page_mode",json_object_new_string("AARCH32"));
+            break;
+        case VMI_PM_AARCH64:
+            json_object_object_add(ret,"page_mode",json_object_new_string("AARCH64"));
+            break;
+        default:
+            json_object_object_add(ret,"page_mode",json_object_new_string("UNKNOWN"));
+    }
+
     json_object_object_add(ret,"kernel_base",json_object_new_int64(kernel_base));
     json_object_object_add(ret,"current_process",json_object_new_int64(curr_proc));
     json_object_object_add(ret,"current_thread",json_object_new_int64(curr_thread));
@@ -386,8 +416,8 @@ json_object* handle_init(json_object* json_pkt){
         free(domain);
         return handle_error(3);
     }    
-    
-    ivmi_ctx.domain = domain;
+   
+   ivmi_ctx.domain = domain;
     g_bit_trylock(&ivmi_ctx.notify_lock,1);
     ivmi_ctx.closing = false;
 
@@ -397,6 +427,13 @@ json_object* handle_init(json_object* json_pkt){
     ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
     drakvuf_pause(ivmi_ctx.drakvuf);
     ivmi_ctx.paused = true;
+
+    // This has to go after the loop, otherwise UaF somehow...
+    vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
+    ivmi_ctx.os = vmi_get_ostype(vmi);
+    ivmi_ctx.pm = vmi_get_page_mode(vmi);
+    drakvuf_release_vmi(ivmi_ctx.drakvuf);
+ 
     return handle_info();
 } 
 
@@ -417,6 +454,8 @@ json_object* handle_close(){
         free(ivmi_ctx.domain);
         ivmi_ctx.domain = NULL;
         ivmi_ctx.drakvuf = NULL;
+        ivmi_ctx.pm = VMI_PM_UNKNOWN;
+        ivmi_ctx.os = VMI_OS_UNKNOWN;
     } 
     return json_object_new_string("OK");
 }
