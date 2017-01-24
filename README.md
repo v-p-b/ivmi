@@ -119,7 +119,9 @@ Example request:
 
 ### Memory read/write
 
-You can access the raw memory of the VM using  virtual addressing. 
+You can access the raw memory of the VM. 
+
+In case of PID=0 the address is treated as *physical*, otherwise it's treated as virtual (for the given process).   
 
 Example requests:
 
