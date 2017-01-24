@@ -95,12 +95,26 @@ Example requests:
 
 ### Process list
 
+*Windows only*
+
 Lists running processes. This is equivalent to libvmi's `process-list` working with Windows and Linux (Linux not tested).
 
 Example request:
 
 ```js
 {"cmd": CMD_PROC_LIST}
+```
+
+### Process module list
+
+*Windows only*
+
+List process modules and their relative addresses.
+
+Example request:
+
+```js
+{"cmd": CMD_PROC_MOUDLES, "pid": 1234}
 ```
 
 ### Memory read/write
