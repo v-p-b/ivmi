@@ -6,7 +6,7 @@ Interactive Virtual Machine Introspection based on [DRAKVUF](https://drakvuf.com
 Building
 --------
 
-* Install [dependencies of DRAKVUF](https://drakvuf.com).
+* Install [DRAKVUF](https://drakvuf.com).
 * Install ZMQ. On Ubuntu Trusty it's `apt-get install libzmq3 libzmq3-dev`
 * Install zmqpp (the C++ interface for ZMQ): On Ubuntu Trusty it's `apt-get install libzmqpp3 libzmqpp-dev`
 * Install CMake: On Ubuntu Trusty it's `apt-get install cmake`
@@ -64,7 +64,7 @@ This is how you assign your session to a given VM. You have to provide the name 
 Example request:
 
 ```js
-{"cmd": CMD_INIT, "domain","testdomain", "profile": { ... Rekall profile object ... } }
+{"cmd": CMD_INIT, "domain", "testdomain", "profile": rekall_profile_obj }
 ```
 
 The response contains basic information about the domain and the iVMI context (same as Info).
@@ -110,11 +110,11 @@ You can access the raw memory of the VM using  virtual addressing.
 Example requests:
 
 ```js
-{"cmd": CMD_MEM_READ, "pid":1234, "addr": 0xdeadbeef "len": 32}
+{"cmd": CMD_MEM_READ, "pid":1234, "addr": 0xdeadbeef, "len": 32}
 ```
 
 ```js
-{"cmd": CMD_MEM_WRITE, "pid":1234, "addr": 0xdeadbeef "contents": "QUFBQQ=="}
+{"cmd": CMD_MEM_WRITE, "pid": 1234, "addr": 0xdeadbeef, "contents": "QUFBQQ=="}
 ```
 
 Memory contents are serialized to Base64.
@@ -155,7 +155,7 @@ Breakpoint events are delivered through the notification channel.
 
 ### Notification acknowlegdement
 
-When a breakpoint is hit a callback is executed in iVMI that pushes a JSON object with information about the event down the Notification channel. The execution of the introspected domain is stopped until this callback returns. You can make the callback return by sending a Notification Acknowledgement on the Control channel.
+When a breakpoint is hit a callback is executed in iVMI that pushes a JSON object with information about the event down the Notification channel. The execution of the affected VCPU is stopped until this callback returns. You can make the callback return by sending a Notification Acknowledgement on the Control channel.
 
 ```js
 {"cmd": CMD_NOTIFY_CONT, "trap": trap_obj}
@@ -180,7 +180,7 @@ Detach from the introspected domain, remove all traps. Pending notifications are
 OS support
 ----------
 
-As libvmi allows access to raw guest memory and registers it is posibble to implement any OS dependent functionality at client side. In practice, DRAKVUF supports 32 and 64-bit Windows 7 and Linux without KASLR. High level utility functions in iVMI were tested with Windows guests. 
+As libvmi allows access to raw guest memory and registers it is posibble to implement any OS dependent functionality at client side. In practice, DRAKVUF supports 32 and 64-bit Windows 7 and Linux. High level utility functions in iVMI were tested with Windows guests. 
 
 At server side Linux on Xen is supported.
 
@@ -191,6 +191,8 @@ This is an early release, so:
 
 * Your VMs and even your hypervisor may crash (ProTip: don't mess with physical addresses if you're not sure what you're doing) 
 * APIs are subject to change
+* No full guest multi-CPU support
+* Handling non-Windows/OS independent API calls is under way
 * CMake build scripts likely suck, this is my first time...
 
 If you find a bug, use the Issue Tracker.
