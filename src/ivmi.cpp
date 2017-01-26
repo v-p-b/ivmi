@@ -425,8 +425,6 @@ json_object* handle_init(json_object* json_pkt){
     json_object_put(json_domain);
 
     ivmi_ctx.drakvuf_loop = g_thread_new("drakvuf_loop", (GThreadFunc)drakvuf_loop, ivmi_ctx.drakvuf);
-    drakvuf_pause(ivmi_ctx.drakvuf);
-    ivmi_ctx.paused = true;
 
     // This has to go after the loop, otherwise UaF somehow...
     vmi_instance_t vmi=drakvuf_lock_and_get_vmi(ivmi_ctx.drakvuf);
