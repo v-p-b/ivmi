@@ -1,12 +1,13 @@
 iVMI
 ====
 
-Interactive Virtual Machine Introspection based on [DRAKVUF](https://drakvuf.com) and [libvmi](https://libvmi.com). The aim of this project is to create a language independent wrapper to facilitate VMI-based tool prototyping, scripting and debugging. 
+Interactive Virtual Machine Introspection based on [DRAKVUF](https://drakvuf.com) and [libvmi](http://libvmi.com). The aim of this project is to create a language independent wrapper to facilitate VMI-based tool prototyping, scripting and debugging. 
 
 Building
 --------
 
 * Install [DRAKVUF](https://drakvuf.com).
+  * It's important to have matching iVMI-DRAKVUF-LibVMI versions!
 * Install ZMQ. On Ubuntu Trusty it's `apt-get install libzmq3 libzmq3-dev`
 * Install zmqpp (the C++ interface for ZMQ): On Ubuntu Trusty it's `apt-get install libzmqpp3 libzmqpp-dev`
 * Install CMake: On Ubuntu Trusty it's `apt-get install cmake`
@@ -32,13 +33,13 @@ cmake ..
 make
 ```
 
-If the build succeeds you can start ivmi: `src/ivmi`
+If the build succeeds you can start iVMI: `src/ivmi`
 
 Interface
 ---------
 
 iVMI provides two basic facilities around the lower level VMI components:
-* Communication over [ZeroMQ](http://zeromq.org): This provides a transport-independent communication channel. You can connect locally using Unix domain sockets or over the network via TCP.
+* Communication over [ZeroMQ](http://zeromq.org): This provides a transport-independent communication channel. You can connect locally using Unix domain sockets or over the network via TCP. 
 * JSON serialization: Every message passed over ZMQ is in JSON format, that is highly portable and human readable. 
 
 iVMI reserves two channels for communication:
@@ -46,6 +47,8 @@ iVMI reserves two channels for communication:
 * A Notification channel is used for asynchronous delivery of VMI events (breakpoint traps for now). This is a ZMQ PUSH-PULL socket pair.
 
 Example clients in Python 3 are provided, it is recommended to use these as reference.
+
+Please be aware that iVMI acts as an unauthenticated debugger interface, connecting clients will have full control over your host, so bind your sockets carefully!
 
 ### List domains (VMs)
 
@@ -76,7 +79,7 @@ General information about the current state of the domain and the iVMI context.
 Example request:
 
 ```js
-{"cmd": CMD_LIST}
+{"cmd": CMD_INFO}
 ```
 
 ### (Un)Pause domain
@@ -196,7 +199,7 @@ Detach from the introspected domain, remove all traps. Pending notifications are
 OS support
 ----------
 
-As libvmi allows access to raw guest memory and registers it is posibble to implement any OS dependent functionality at client side. In practice, DRAKVUF supports 32 and 64-bit Windows 7 and Linux. High level utility functions in iVMI were tested with Windows guests. 
+As LibVMI allows access to raw guest memory and registers it is posibble to implement any OS dependent functionality at client side. In practice, DRAKVUF supports 32 and 64-bit Windows 7 and Linux. High level utility functions in iVMI were tested with Windows guests. 
 
 At server side Linux on Xen is supported.
 
@@ -211,4 +214,10 @@ This is an early release, so:
 * Handling non-Windows/OS independent API calls is under way
 * CMake build scripts likely suck, this is my first time...
 
-If you find a bug, use the Issue Tracker.
+Additionally see and use the Issue tracker!
+
+Thanks
+------
+
+* [@tkengyel](https://github.com/tklengyel) for the continous help with my VMI struggles. 
+* [@dnet](https://github.com/dnet) for help fixing my most frustrating mistakes.
