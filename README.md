@@ -3,6 +3,8 @@ iVMI
 
 Interactive Virtual Machine Introspection based on [DRAKVUF](https://drakvuf.com) and [libvmi](http://libvmi.com). The aim of this project is to create a language independent wrapper to facilitate VMI-based tool prototyping, scripting and debugging. 
 
+[![Build Status](https://travis-ci.org/v-p-b/ivmi.svg?branch=master)](https://travis-ci.org/v-p-b/ivmi)
+
 Building
 --------
 
