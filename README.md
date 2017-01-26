@@ -67,7 +67,7 @@ This is how you assign your session to a given VM. You have to provide the name 
 Example request:
 
 ```js
-{"cmd": CMD_INIT, "domain", "testdomain", "profile": rekall_profile_obj }
+{"cmd": CMD_INIT, "domain": "testdomain", "profile": rekall_profile_obj }
 ```
 
 The response contains basic information about the domain and the iVMI context (same as Info).
@@ -129,7 +129,7 @@ In case of PID=0 the address is treated as *physical*, otherwise it's treated as
 Example requests:
 
 ```js
-{"cmd": CMD_MEM_READ, "pid":1234, "addr": 0xdeadbeef, "len": 32}
+{"cmd": CMD_MEM_READ, "pid": 1234, "addr": 0xdeadbeef, "len": 32}
 ```
 
 ```js
