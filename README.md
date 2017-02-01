@@ -5,6 +5,10 @@ Interactive Virtual Machine Introspection based on [DRAKVUF](https://drakvuf.com
 
 [![Build Status](https://travis-ci.org/v-p-b/ivmi.svg?branch=master)](https://travis-ci.org/v-p-b/ivmi)
 
+A small demo:
+
+[![asciicast](https://asciinema.org/a/100801.png)](https://asciinema.org/a/100801)
+
 Building
 --------
 
