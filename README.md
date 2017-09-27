@@ -22,11 +22,7 @@ Building
 Clone the repository and enter your local directory, then initialize submodules:
 
 ```
-git submodule init
-git submodule update
-cd drakvuf
-git submodule init
-git submodule update
+git submodule update --init --recursive
 ```
 
 Build:
